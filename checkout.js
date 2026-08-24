@@ -1,4 +1,4 @@
-const API = "/api";
+const API= "https://charcoal-marketplace-main-production.up.railway.app/api";
 
 const PI_SANDBOX =
   location.hostname.includes("sandbox.minepi.com") ||
@@ -90,9 +90,9 @@ function saveCart(cart) {
 }
 
 
-/* =========================================================
-   RENDER CHECKOUT
-========================================================= */
+/* ===================================================
+   CHECKOUT
+=================================================== */
 
 function renderCheckout() {
 

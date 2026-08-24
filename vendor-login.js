@@ -1,4 +1,4 @@
-const API="/api";
+const API= "https://charcoal-marketplace-main-production.up.railway.app/api";
 
 const $=id=>document.getElementById(id);
 

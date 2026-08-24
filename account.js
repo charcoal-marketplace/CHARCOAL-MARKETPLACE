@@ -1,4 +1,4 @@
-const ACCOUNT_API = "/api";
+const ACCOUNT_API = "https://charcoal-marketplace-main-production.up.railway.app/api";
 
 function accountToken(){
   return localStorage.getItem("token");

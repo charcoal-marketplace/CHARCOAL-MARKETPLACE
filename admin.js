@@ -3,8 +3,7 @@
    ADMIN DASHBOARD
 ========================================================= */
 
-const API =
-  "/api";
+const API= "https://charcoal-marketplace-main-production.up.railway.app/api";
 /* =========================================================
    AUTH STATE
 ========================================================= */
