@@ -1,9 +1,11 @@
 /* =========================================================
    CHARCOAL MARKETPLACE
-   ADMIN LOGIN
+   PI ADMIN LOGIN
+   PI SDK AUTHENTICATION ONLY
 ========================================================= */
 
-const API = "https://charcoal-marketplace-main-production.up.railway.app/api";
+const API =
+  "https://charcoal-marketplace-main-production.up.railway.app/api";
 
 
 /* =========================================================
@@ -24,7 +26,7 @@ document.addEventListener(
   () => {
 
     console.log(
-      "🔐 Admin Login initialized"
+      "🔐 Pi Admin Login initialized"
     );
 
     console.log(
@@ -33,8 +35,8 @@ document.addEventListener(
     );
 
     /*
-      If an admin token already exists,
-      verify it before allowing access.
+      Check whether an administrator
+      is already authenticated.
     */
 
     checkExistingAdmin();
@@ -55,7 +57,7 @@ async function checkExistingAdmin() {
 
   /*
     No existing token.
-    User remains on login page.
+    User remains on the Pi login page.
   */
 
   if (!token) {
@@ -120,7 +122,7 @@ async function checkExistingAdmin() {
 
 
     /*
-      Token is valid.
+      Existing token is valid.
     */
 
     if (
@@ -144,8 +146,7 @@ async function checkExistingAdmin() {
 
 
     /*
-      Token is invalid or account
-      no longer has administrator access.
+      Existing token is invalid.
     */
 
     console.warn(
@@ -172,275 +173,8 @@ async function checkExistingAdmin() {
 
 
 /* =========================================================
-   EMAIL ADMIN LOGIN
-========================================================= */
-
-async function login() {
-
-  const emailEl =
-    getEl("email");
-
-  const passwordEl =
-    getEl("password");
-
-  const msg =
-    getEl("msg");
-
-  const btn =
-    getEl("loginBtn");
-
-
-  if (
-    !emailEl ||
-    !passwordEl ||
-    !msg ||
-    !btn
-  ) {
-
-    console.error(
-      "❌ Admin login elements not found"
-    );
-
-    return;
-
-  }
-
-
-  const email =
-    emailEl.value.trim();
-
-  const password =
-    passwordEl.value;
-
-
-  /* -------------------------------------------------------
-     VALIDATION
-  ------------------------------------------------------- */
-
-  if (!email || !password) {
-
-    msg.innerText =
-      "Please enter your email and password.";
-
-    return;
-
-  }
-
-
-  btn.disabled = true;
-
-  msg.innerText =
-    "Verifying administrator account...";
-
-
-  console.log(
-    "🔐 Attempting email administrator login..."
-  );
-
-
-  try {
-
-    const response =
-      await fetch(
-        `${API}/auth/admin-login`,
-        {
-          method: "POST",
-
-          headers: {
-
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json"
-
-          },
-
-          body:
-            JSON.stringify({
-
-              email,
-              password
-
-            })
-
-        }
-      );
-
-
-    const data =
-      await response
-        .json()
-        .catch(() => ({}));
-
-
-    console.log(
-      "🔎 Admin login response:",
-      {
-        status:
-          response.status,
-
-        success:
-          data.success,
-
-        code:
-          data.code,
-
-        message:
-          data.message
-      }
-    );
-
-
-    /* -----------------------------------------------------
-       LOGIN FAILED
-    ----------------------------------------------------- */
-
-    if (
-      !response.ok ||
-      !data.success ||
-      !data.token
-    ) {
-
-      console.error(
-        "❌ Admin login rejected:",
-        data
-      );
-
-
-      msg.innerText =
-        data.message ||
-        "Admin login failed.";
-
-
-      return;
-
-    }
-
-
-    /* -----------------------------------------------------
-       VERIFY USER ROLE
-    ----------------------------------------------------- */
-
-    if (
-      !data.user ||
-      data.user.role !== "admin"
-    ) {
-
-      console.error(
-        "❌ Login succeeded but account is not an admin:",
-        data.user
-      );
-
-
-      msg.innerText =
-        "Access denied. This account is not an administrator.";
-
-
-      return;
-
-    }
-
-
-    /* -----------------------------------------------------
-       VERIFY ADMIN STATUS
-    ----------------------------------------------------- */
-
-    if (
-      data.user.status &&
-      data.user.status !== "approved"
-    ) {
-
-      console.error(
-        "❌ Administrator account is not approved:",
-        data.user
-      );
-
-
-      msg.innerText =
-        "Administrator account is not approved.";
-
-
-      return;
-
-    }
-
-
-    /* -----------------------------------------------------
-       SAVE JWT
-    ----------------------------------------------------- */
-
-    localStorage.setItem(
-      "adminToken",
-      data.token
-    );
-
-
-    console.log(
-      "✅ Administrator JWT saved successfully"
-    );
-
-
-    console.log(
-      "👤 Admin:",
-      {
-        id:
-          data.user.id,
-
-        role:
-          data.user.role,
-
-        status:
-          data.user.status,
-
-        admin_level:
-          data.user.admin_level
-      }
-    );
-
-
-    msg.innerText =
-      "Administrator verified ✔";
-
-
-    /* -----------------------------------------------------
-       REDIRECT
-    ----------------------------------------------------- */
-
-    setTimeout(
-      () => {
-
-        window.location.replace(
-          "admin.html"
-        );
-
-      },
-      500
-    );
-
-
-  } catch (error) {
-
-    console.error(
-      "❌ Admin login connection error:",
-      error
-    );
-
-
-    msg.innerText =
-      "Unable to connect to the server.";
-
-  } finally {
-
-    btn.disabled = false;
-
-  }
-
-}
-
-
-/* =========================================================
    PI ADMIN LOGIN
+   PI SDK ONLY
 ========================================================= */
 
 async function loginWithPi() {
