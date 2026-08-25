@@ -330,6 +330,8 @@ document.addEventListener(
     loadPendingProducts();
 
     loadPendingVendors();
+    
+    loadPendingPayouts();
 
   }
 );
@@ -1216,6 +1218,294 @@ async function rejectVendor(id) {
 
 }
 
+
+/* =========================================================
+   VENDOR PAYOUTS
+========================================================= */
+
+async function loadPendingPayouts() {
+
+  const container =
+    document.getElementById(
+      "pendingPayouts"
+    );
+
+
+  if (!container) {
+    return;
+  }
+
+
+  try {
+
+    container.innerHTML =
+      "<p>Loading pending payouts...</p>";
+
+
+    const response =
+      await fetch(
+        `${API}/admin/payouts/pending`,
+        {
+          method: "GET",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load pending payouts"
+      );
+
+    }
+
+
+    const payouts =
+      Array.isArray(data)
+        ? data
+        : data.payouts;
+
+
+    if (
+      !Array.isArray(payouts) ||
+      payouts.length === 0
+    ) {
+
+      container.innerHTML =
+        "<p>No pending vendor payouts.</p>";
+
+      return;
+
+    }
+
+
+    container.innerHTML =
+      payouts.map(
+        payout => `
+
+        <div class="card">
+
+          <h3>
+            ${escapeHTML(
+              payout.vendor_name ||
+              "Vendor"
+            )}
+          </h3>
+
+          <p>
+            Pi Username:
+            ${escapeHTML(
+              payout.pi_username ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            Wallet Address:
+            <br>
+            <small>
+              ${escapeHTML(
+                payout.wallet_address ||
+                "Not available"
+              )}
+            </small>
+          </p>
+
+          <p>
+            Order:
+            ${escapeHTML(
+              payout.order_id ||
+              "N/A"
+            )}
+          </p>
+
+          <h3>
+            ${Number(
+              payout.amount_pi || 0
+            ).toFixed(7)}
+            Pi
+          </h3>
+
+          <p>
+            Status:
+            ${escapeHTML(
+              payout.status ||
+              "pending"
+            )}
+          </p>
+
+          <button
+            onclick="releaseVendorPayout(${payout.id})"
+          >
+            💰 Release Pi
+          </button>
+
+        </div>
+
+      `
+      ).join("");
+
+
+  } catch (error) {
+
+    console.error(
+      "Pending payouts error:",
+      error
+    );
+
+
+    container.innerHTML =
+      "<p>Unable to load pending payouts.</p>";
+
+  }
+
+}
+
+
+/* =========================================================
+   RELEASE VENDOR PAYOUT
+========================================================= */
+
+async function releaseVendorPayout(
+  earningId
+) {
+
+  if (
+    !Number.isInteger(
+      Number(earningId)
+    )
+  ) {
+
+    alert(
+      "Invalid payout ID."
+    );
+
+    return;
+
+  }
+
+
+  const confirmed =
+    confirm(
+      "Release this Pi payment to the vendor's wallet?"
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/payouts/${earningId}/release`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Pi payout failed."
+      );
+
+      return;
+
+    }
+
+
+    if (!data.success) {
+
+      alert(
+        data.message ||
+        "Pi payout was not completed."
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      data.message ||
+      "Pi released successfully to the vendor."
+    );
+
+
+    loadPendingPayouts();
+
+    loadDashboard();
+
+
+  } catch (error) {
+
+    console.error(
+      "Vendor payout error:",
+      error
+    );
+
+
+    alert(
+      "Unable to release Pi to the vendor."
+    );
+
+  }
+
+}
 
 /* =========================================================
    IMAGE URL

@@ -43,6 +43,10 @@
     👤 Role Manager
   </button>
 
+  <button onclick="showSection('payouts')">
+  💰 Vendor Payouts
+</button>
+
   <!-- SUPER ADMIN AREA -->
 
   <button
@@ -569,6 +573,52 @@
 </section>
 
 
+  <!-- =====================================================
+     VENDOR PAYOUTS
+===================================================== -->
+
+<section
+  id="payouts"
+  class="section"
+>
+
+  <h1>
+    💰 Vendor Payouts
+  </h1>
+
+  <div class="card">
+
+    <h2>
+      Pending Vendor Earnings
+    </h2>
+
+    <p>
+      Approved administrators can release
+      eligible vendor earnings to the vendor's
+      Pi wallet address.
+    </p>
+
+    <button
+      type="button"
+      onclick="loadPendingPayouts()"
+    >
+      🔄 Refresh Payouts
+    </button>
+
+    <div
+      id="pendingPayouts"
+      class="list-box"
+    >
+
+      <p>
+        Loading pending payouts...
+      </p>
+
+    </div>
+
+  </div>
+
+</section>
 
 <!-- =====================================================
      SUPER ADMIN INFORMATION

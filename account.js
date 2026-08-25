@@ -44,26 +44,273 @@ function nav(){
 
 async function loadOrders(){
   if(!requireAccount()) return;
+
   const box=document.getElementById("content");
+
   try{
-    const res=await fetch(`${ACCOUNT_API}/orders/my`,{headers:accountHeaders()});
+
+    const res=await fetch(
+      `${ACCOUNT_API}/orders/my`,
+      {
+        headers:accountHeaders()
+      }
+    );
+
     const data=await res.json().catch(()=>[]);
-    if(!res.ok) throw new Error(data.message||"Unable to load orders");
-    if(!Array.isArray(data)||!data.length){
-      box.innerHTML='<div class="card">No orders yet.</div>';
-      return;
+
+    if(!res.ok){
+
+      throw new Error(
+        data.message || "Unable to load orders"
+      );
+
     }
-    box.innerHTML=data.map(o=>`
-      <div class="card">
-        <strong>${escapeHTML(o.product_name||o.name||"Order item")}</strong>
-        <p>Quantity: ${Number(o.quantity||0)}</p>
-        <p>Subtotal: ${Number(o.subtotal_pi||0).toFixed(2)} Pi</p>
-        <p>Status: ${escapeHTML(o.status||"pending")}</p>
-        <p>Checkout: ${escapeHTML(o.checkout_ref||"")}</p>
-      </div>`).join("");
+
+    if(!Array.isArray(data)||!data.length){
+
+      box.innerHTML=
+        '<div class="card">No orders yet.</div>';
+
+      return;
+
+    }
+
+
+    box.innerHTML=data.map(o=>{
+
+      const deliveryStatus =
+        String(
+          o.delivery_status || "pending"
+        ).toLowerCase();
+
+      const orderStatus =
+        String(
+          o.status || "pending"
+        ).toLowerCase();
+
+      const confirmed =
+        !!o.buyer_confirmed_at;
+
+
+      /*
+       * Buyer can confirm only after delivery.
+       */
+
+      const canConfirm =
+        !confirmed &&
+        (
+          deliveryStatus === "delivered" ||
+          orderStatus === "completed"
+        );
+
+
+      let confirmationHTML = "";
+
+
+      if(confirmed){
+
+        confirmationHTML = `
+          <div class="card">
+            <strong>✅ Product Received</strong>
+            <p>
+              You confirmed that this product was received.
+            </p>
+            <small>
+              Confirmation:
+              ${escapeHTML(
+                o.buyer_confirmed_at || ""
+              )}
+            </small>
+            <p>
+              <strong>
+                Vendor payment is now eligible for Admin release.
+              </strong>
+            </p>
+          </div>
+        `;
+
+      }else if(canConfirm){
+
+        confirmationHTML = `
+          <div class="card">
+            <strong>📦 Product Delivered</strong>
+
+            <p>
+              Have you received this product?
+            </p>
+
+            <button
+              onclick="confirmProductReceived(${Number(o.id)})"
+            >
+              ✅ Confirm Product Received
+            </button>
+          </div>
+        `;
+
+      }else{
+
+        confirmationHTML = `
+          <div class="card">
+            <strong>🚚 Delivery Status</strong>
+
+            <p>
+              ${escapeHTML(
+                o.delivery_status || "pending"
+              )}
+            </p>
+
+            ${
+              deliveryStatus === "shipped"
+                ? `
+                  <p>
+                    Your product has been shipped.
+                    Please confirm receipt after delivery.
+                  </p>
+                `
+                : `
+                  <p>
+                    The product is not yet marked as delivered.
+                  </p>
+                `
+            }
+
+          </div>
+        `;
+
+      }
+
+
+      return `
+        <div class="card">
+
+          <strong>
+            ${escapeHTML(
+              o.product_name ||
+              o.name ||
+              "Order item"
+            )}
+          </strong>
+
+          <p>
+            Quantity:
+            ${Number(o.quantity||0)}
+          </p>
+
+          <p>
+            Subtotal:
+            ${Number(
+              o.subtotal_pi||0
+            ).toFixed(2)} Pi
+          </p>
+
+          <p>
+            Order Status:
+            ${escapeHTML(
+              o.status || "pending"
+            )}
+          </p>
+
+          <p>
+            Delivery:
+            ${escapeHTML(
+              o.delivery_status || "pending"
+            )}
+          </p>
+
+          <p>
+            Checkout:
+            ${escapeHTML(
+              o.checkout_ref || ""
+            )}
+          </p>
+
+          ${confirmationHTML}
+
+        </div>
+      `;
+
+    }).join("");
+
+
   }catch(e){
-    box.innerHTML=`<div class="card">Unable to load orders: ${escapeHTML(e.message)}</div>`;
+
+    box.innerHTML=
+      `<div class="card">
+        Unable to load orders:
+        ${escapeHTML(e.message)}
+      </div>`;
+
   }
+}
+
+async function confirmProductReceived(orderId){
+
+  if(!requireAccount()) return;
+
+
+  const confirmed =
+    window.confirm(
+      "Please confirm that you have received the product. This confirmation will make the vendor's earning eligible for Admin release."
+    );
+
+
+  if(!confirmed){
+    return;
+  }
+
+
+  try{
+
+    const res =
+      await fetch(
+        `${ACCOUNT_API}/orders/${Number(orderId)}/confirm-received`,
+        {
+          method:"POST",
+          headers:{
+            ...accountHeaders(),
+            "Content-Type":"application/json"
+          }
+        }
+      );
+
+
+    const data =
+      await res.json().catch(()=>({}));
+
+
+    if(!res.ok){
+
+      throw new Error(
+        data.message ||
+        "Unable to confirm product receipt"
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Product receipt confirmed successfully."
+    );
+
+
+    /*
+     * Reload the orders so the button disappears
+     * and the confirmed state is displayed.
+     */
+
+    await loadOrders();
+
+
+  }catch(error){
+
+    alert(
+      error.message ||
+      "Failed to confirm product receipt"
+    );
+
+  }
+
 }
 
 function loadCart(){
