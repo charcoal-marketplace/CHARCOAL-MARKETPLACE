@@ -391,25 +391,411 @@ function loadPersonalInfo(){
     </div>`;
 }
 
+
 async function loadEarnings(){
+
   if(!requireAccount()) return;
+
   const box=document.getElementById("content");
+
   try{
-    const res=await fetch(`${ACCOUNT_API}/orders/vendor`,{headers:accountHeaders()});
+
+    const res=await fetch(
+      `${ACCOUNT_API}/orders/vendor`,
+      {
+        headers:accountHeaders()
+      }
+    );
+
     const data=await res.json().catch(()=>[]);
-    if(!res.ok) throw new Error(data.message||"Vendor access required");
-    const rows=Array.isArray(data)?data:[];
-    const total=rows.reduce((sum,row)=>sum+Number(row.subtotal_pi||0),0);
+
+    if(!res.ok){
+
+      throw new Error(
+        data.message || "Vendor access required"
+      );
+
+    }
+
+    const rows=Array.isArray(data) ? data : [];
+
+    const total=rows.reduce(
+      (sum,row)=>
+        sum + Number(row.subtotal_pi || 0),
+      0
+    );
+
+    if(!rows.length){
+
+      box.innerHTML=`
+        <div class="card">
+          <h2>0.00 Pi</h2>
+          <p>No vendor orders yet.</p>
+        </div>
+      `;
+
+      return;
+
+    }
+
     box.innerHTML=`
-      <div class="card"><h2>${total.toFixed(2)} Pi</h2><p>Gross value of your listed order items.</p></div>
-      ${rows.map(r=>`<div class="card">
-        <strong>${escapeHTML(r.name||r.product_name||"Product")}</strong>
-        <p>${Number(r.subtotal_pi||0).toFixed(2)} Pi · ${escapeHTML(r.status||"pending")}</p>
-      </div>`).join("")}`;
+      <div class="card">
+        <h2>${total.toFixed(2)} Pi</h2>
+        <p>Gross value of your listed order items.</p>
+      </div>
+
+      ${rows.map(r=>{
+
+        const orderId =
+          Number(r.id);
+
+        const orderStatus =
+          String(
+            r.status || "pending"
+          ).toLowerCase();
+
+        const deliveryStatus =
+          String(
+            r.delivery_status || "pending"
+          ).toLowerCase();
+
+        let actionHTML="";
+
+
+        /* =====================================================
+           STEP 1 — VENDOR MARKS ORDER AS SHIPPED
+
+           Paid or processing orders can be shipped.
+        ===================================================== */
+
+        if(
+          (
+            orderStatus === "paid" ||
+            orderStatus === "processing"
+          ) &&
+          deliveryStatus !== "shipped" &&
+          deliveryStatus !== "delivered" &&
+          orderStatus !== "completed"
+        ){
+
+          actionHTML=`
+            <button
+              type="button"
+              onclick="markOrderShipped(${orderId})"
+            >
+              🚚 Mark as Shipped
+            </button>
+          `;
+
+        }
+
+
+        /* =====================================================
+           STEP 2 — VENDOR MARKS ORDER AS DELIVERED
+
+           This button appears ONLY after shipping.
+        ===================================================== */
+
+        else if(
+          deliveryStatus === "shipped" &&
+          orderStatus !== "completed"
+        ){
+
+          actionHTML=`
+            <button
+              type="button"
+              onclick="markOrderDelivered(${orderId})"
+            >
+              📦 Mark as Delivered
+            </button>
+          `;
+
+        }
+
+
+        /* =====================================================
+           STEP 3 — ORDER ALREADY DELIVERED
+        ===================================================== */
+
+        else if(
+          deliveryStatus === "delivered" ||
+          orderStatus === "completed"
+        ){
+
+          actionHTML=`
+            <div class="card">
+              <strong>✅ Delivered</strong>
+
+              <p>
+                Waiting for buyer to confirm receipt.
+              </p>
+            </div>
+          `;
+
+        }
+
+
+        /* =====================================================
+           STEP 4 — FALLBACK
+        ===================================================== */
+
+        else{
+
+          actionHTML=`
+            <div class="card">
+              <strong>⏳ Order Status</strong>
+
+              <p>
+                This order is currently:
+                ${escapeHTML(
+                  r.status || "pending"
+                )}
+              </p>
+
+              <p>
+                Delivery:
+                ${escapeHTML(
+                  r.delivery_status || "pending"
+                )}
+              </p>
+            </div>
+          `;
+
+        }
+
+
+        return `
+          <div class="card">
+
+            <strong>
+              ${escapeHTML(
+                r.name ||
+                r.product_name ||
+                "Product"
+              )}
+            </strong>
+
+            <p>
+              Buyer:
+              ${escapeHTML(
+                r.buyer_name ||
+                r.pi_username ||
+                "Buyer"
+              )}
+            </p>
+
+            <p>
+              Quantity:
+              ${Number(r.quantity || 0)}
+            </p>
+
+            <p>
+              Amount:
+              ${Number(
+                r.subtotal_pi || 0
+              ).toFixed(2)} Pi
+            </p>
+
+            <p>
+              Order Status:
+              <strong>
+                ${escapeHTML(
+                  r.status || "pending"
+                )}
+              </strong>
+            </p>
+
+            <p>
+              Delivery:
+              <strong>
+                ${escapeHTML(
+                  r.delivery_status || "pending"
+                )}
+              </strong>
+            </p>
+
+            ${r.checkout_ref ? `
+              <p>
+                Checkout:
+                ${escapeHTML(r.checkout_ref)}
+              </p>
+            ` : ""}
+
+            ${actionHTML}
+
+          </div>
+        `;
+
+      }).join("")}
+    `;
+
   }catch(e){
-    box.innerHTML=`<div class="card">${escapeHTML(e.message)}</div>`;
+
+    box.innerHTML=
+      `<div class="card">
+        ${escapeHTML(e.message)}
+      </div>`;
+
   }
 }
+
+/* =========================================================
+VENDOR MARK ORDER AS DELIVERED
+========================================================= */
+
+async function markOrderDelivered(orderId){
+
+if(!requireAccount()) return;
+
+const confirmed =
+window.confirm(
+"Confirm that this order has been delivered to the buyer?"
+);
+
+if(!confirmed){
+return;
+}
+
+try{
+
+const res =
+  await fetch(
+    `${ACCOUNT_API}/orders/${Number(orderId)}/status`,
+    {
+      method:"PUT",
+
+      headers:{
+        ...accountHeaders(),
+        "Content-Type":"application/json"
+      },
+
+      body:JSON.stringify({
+        status:"completed"
+      })
+    }
+  );
+
+
+const data =
+  await res.json().catch(()=>({}));
+
+
+if(!res.ok){
+
+  throw new Error(
+    data.message ||
+    "Unable to mark order as delivered"
+  );
+
+}
+
+
+alert(
+  "Order marked as delivered. The buyer can now confirm receipt."
+);
+
+
+/*
+ * Reload vendor orders so the button disappears
+ * and the new delivery status is displayed.
+ */
+
+await loadEarnings();
+
+}catch(error){
+
+console.error(
+  "Mark delivered error:",
+  error
+);
+
+alert(
+  error.message ||
+  "Failed to mark order as delivered."
+);
+
+}
+
+}
+
+async function markOrderShipped(orderId){
+
+if(!requireAccount()) return;
+
+const confirmed =
+window.confirm(
+"Confirm that this order has been shipped to the buyer?"
+);
+
+if(!confirmed){
+return;
+}
+
+try{
+
+const res =
+  await fetch(
+    `${ACCOUNT_API}/orders/${Number(orderId)}/status`,
+    {
+      method:"PUT",
+
+      headers:{
+        ...accountHeaders(),
+        "Content-Type":"application/json"
+      },
+
+      body:JSON.stringify({
+        status:"shipped"
+      })
+    }
+  );
+
+
+const data =
+  await res.json().catch(()=>({}));
+
+
+if(!res.ok){
+
+  throw new Error(
+    data.message ||
+    "Unable to mark order as shipped"
+  );
+
+}
+
+
+alert(
+  "Order marked as shipped successfully."
+);
+
+
+/*
+ * Reload vendor orders.
+ *
+ * The "Mark as Shipped" button will disappear
+ * and the "Mark as Delivered" button will appear.
+ */
+
+await loadEarnings();
+
+}catch(error){
+
+console.error(
+  "Mark shipped error:",
+  error
+);
+
+
+alert(
+  error.message ||
+  "Failed to mark order as shipped."
+);
+
+}
+
+}
+
 
 document.addEventListener("DOMContentLoaded",()=>{
   const page=document.body.dataset.page;
