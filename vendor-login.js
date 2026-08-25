@@ -345,6 +345,36 @@ $("vendorForm")
         }
 
 
+        /* =================================================
+           PI WALLET ADDRESS
+        ================================================= */
+
+        const walletInput =
+          $("piWalletAddress");
+
+
+        if (!walletInput) {
+
+          throw new Error(
+            "Pi wallet address field is missing from the registration form."
+          );
+
+        }
+
+
+        const piWalletAddress =
+          walletInput.value.trim();
+
+
+        if (!piWalletAddress) {
+
+          throw new Error(
+            "Please enter your Pi wallet address."
+          );
+
+        }
+
+
         const body = {
 
           accessToken:
@@ -373,7 +403,10 @@ $("vendorForm")
           business_description:
             $("businessDescription")
               .value
-              .trim()
+              .trim(),
+
+          pi_wallet_address:
+            piWalletAddress
 
         };
 
