@@ -1227,12 +1227,28 @@ function getImageURL(path) {
     return "placeholder.png";
   }
 
-  if (/^https?:\/\//i.test(String(path))) {
-    return String(path);
+  const value = String(path).trim();
+
+  /*
+    If backend already returned a complete URL,
+    use it exactly as it is.
+  */
+
+  if (/^https?:\/\//i.test(value)) {
+    return value;
   }
 
-  const value = String(path).replace(/^\/+/, "");
-  return `/${value}`;
+  /*
+    Product images are stored on Railway.
+  */
+
+  const backendURL =
+    API.replace(/\/api\/?$/, "");
+
+  const cleanPath =
+    value.replace(/^\/+/, "");
+
+  return `${backendURL}/${cleanPath}`;
 }
 
 
