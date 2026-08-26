@@ -450,14 +450,19 @@ async function loadEarnings(){
           Number(r.id);
 
         const orderStatus =
-          String(
-            r.status || "pending"
-          ).toLowerCase();
+  String(
+    r.status || "pending"
+  ).toLowerCase();
 
-        const deliveryStatus =
-          String(
-            r.delivery_status || "pending"
-          ).toLowerCase();
+const paymentStatus =
+  String(
+    r.payment_status || "pending"
+  ).toLowerCase();
+
+const deliveryStatus =
+  String(
+    r.delivery_status || "pending"
+  ).toLowerCase();
 
         let actionHTML="";
 
@@ -469,14 +474,11 @@ async function loadEarnings(){
         ===================================================== */
 
         if(
-          (
-            orderStatus === "paid" ||
-            orderStatus === "processing"
-          ) &&
-          deliveryStatus !== "shipped" &&
-          deliveryStatus !== "delivered" &&
-          orderStatus !== "completed"
-        ){
+  paymentStatus === "paid" &&
+  deliveryStatus !== "shipped" &&
+  deliveryStatus !== "delivered" &&
+  orderStatus !== "completed"
+){
 
           actionHTML=`
             <button
