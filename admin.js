@@ -1244,7 +1244,7 @@ async function loadPendingPayouts() {
 
     const response =
       await fetch(
-        `${API}/admin/payouts/pending`,
+        `${API}/admin/earnings/pending`,
         {
           method: "GET",
           headers: getHeaders()
@@ -1426,7 +1426,7 @@ async function releaseVendorPayout(
 
     const response =
       await fetch(
-        `${API}/admin/payouts/${earningId}/release`,
+        `${API}/admin/earnings/${earningId}/release`,
         {
           method: "POST",
           headers: getHeaders()
