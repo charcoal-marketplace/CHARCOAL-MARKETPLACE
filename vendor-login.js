@@ -8,11 +8,23 @@ const $ = id => document.getElementById(id);
    PI INITIALIZATION
 ========================================================= */
 
-function initPi() {
+let piInitialized = false;
+
+async function initPi() {
 
   if (!window.Pi) {
-    return;
+
+    throw new Error(
+      "Please open Charcoal Marketplace in Pi Browser."
+    );
+
   }
+
+
+  if (piInitialized) {
+    return true;
+  }
+
 
   try {
 
@@ -20,21 +32,50 @@ function initPi() {
       location.hostname === "sandbox.minepi.com" ||
       localStorage.getItem("PI_SANDBOX") === "true";
 
+
     const options = {
       version: "2.0"
     };
+
 
     if (piSandbox) {
       options.sandbox = true;
     }
 
-    Pi.init(options);
+
+    /*
+     * IMPORTANT:
+     * Pi.init() returns a Promise.
+     * We must wait for it before Pi.authenticate().
+     */
+
+    await Pi.init(options);
+
+
+    piInitialized = true;
+
+
+    console.log(
+      "[PI] Pi SDK initialized successfully."
+    );
+
+
+    return true;
+
 
   } catch (error) {
 
     console.error(
-      "Pi initialization error:",
+      "[PI] Initialization error:",
       error
+    );
+
+
+    piInitialized = false;
+
+
+    throw new Error(
+      "Unable to initialize Pi. Please open the app in Pi Browser and try again."
     );
 
   }
@@ -52,15 +93,52 @@ function showRegister() {
     .classList
     .add("hidden");
 
+
   $("registerSection")
     .classList
     .remove("hidden");
+
 
   $("registerPrompt")
     .classList
     .add("hidden");
 
-  initPi();
+
+  /*
+   * The wallet address is now obtained/authorized
+   * through Pi authentication.
+   *
+   * We no longer require the vendor to manually
+   * type the address.
+   *
+   * Keep the existing HTML field so the existing
+   * page does not break, but make it optional.
+   */
+
+  const walletInput =
+    $("piWalletAddress");
+
+
+  if (walletInput) {
+
+    walletInput.required = false;
+
+    walletInput.removeAttribute(
+      "required"
+    );
+
+  }
+
+
+  initPi()
+    .catch(error => {
+
+      console.error(
+        "[PI] Register initialization:",
+        error
+      );
+
+    });
 
 }
 
@@ -75,15 +153,26 @@ function showLogin() {
     .classList
     .add("hidden");
 
+
   $("loginSection")
     .classList
     .remove("hidden");
+
 
   $("registerPrompt")
     .classList
     .remove("hidden");
 
-  initPi();
+
+  initPi()
+    .catch(error => {
+
+      console.error(
+        "[PI] Login initialization:",
+        error
+      );
+
+    });
 
 }
 
@@ -94,6 +183,14 @@ function showLogin() {
 
 async function piAuth() {
 
+  /*
+   * Make absolutely sure Pi is initialized
+   * before authentication.
+   */
+
+  await initPi();
+
+
   if (!window.Pi) {
 
     throw new Error(
@@ -102,33 +199,73 @@ async function piAuth() {
 
   }
 
-  initPi();
 
-  return await Pi.authenticate(
-
-    /*
-     * username:
-     *      Needed for vendor identity.
-     *
-     * wallet_address:
-     *      Needed so Pi can provide the vendor's
-     *      current receiving wallet address.
-     */
-    [
-      "username",
-      "wallet_address"
-    ],
-
-    function (payment) {
-
-      console.log(
-        "Incomplete payment:",
-        payment
-      );
-
-    }
-
+  console.log(
+    "[PI] Requesting Pi authentication..."
   );
+
+
+  /*
+   * IMPORTANT:
+   *
+   * username:
+   *   Used for vendor identity/display.
+   *
+   * wallet_address:
+   *   Required because the marketplace needs
+   *   permission to send vendor earnings to
+   *   the vendor through Pi A2U payments.
+   *
+   * We intentionally do NOT request the vendor's
+   * private wallet key/passphrase.
+   */
+
+  const auth =
+    await Pi.authenticate(
+
+      [
+        "username",
+        "wallet_address"
+      ],
+
+      function (payment) {
+
+        console.log(
+          "[PI] Incomplete payment found:",
+          payment
+        );
+
+      }
+
+    );
+
+
+  if (
+    !auth ||
+    !auth.accessToken
+  ) {
+
+    throw new Error(
+      "Pi authentication did not return an access token."
+    );
+
+  }
+
+
+  console.log(
+    "[PI] Pi authentication successful."
+  );
+
+
+  /*
+   * The backend receives ONLY the access token.
+   *
+   * We do NOT trust or send auth.user data to the
+   * backend. The backend verifies the token directly
+   * with Pi /me.
+   */
+
+  return auth;
 
 }
 
@@ -142,14 +279,22 @@ async function loginWithPi() {
   const btn =
     $("piLoginBtn");
 
+
   const msg =
     $("loginMsg");
 
 
-  btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+  }
 
-  msg.textContent =
-    "Connecting to Pi...";
+
+  if (msg) {
+
+    msg.textContent =
+      "Connecting to Pi...";
+
+  }
 
 
   try {
@@ -170,8 +315,12 @@ async function loginWithPi() {
     }
 
 
-    msg.textContent =
-      "Verifying your Pi account...";
+    if (msg) {
+
+      msg.textContent =
+        "Verifying your Pi account...";
+
+    }
 
 
     const res =
@@ -181,27 +330,53 @@ async function loginWithPi() {
           method: "POST",
 
           headers: {
+
             "Content-Type":
               "application/json"
+
           },
 
           body: JSON.stringify({
+
             accessToken:
               auth.accessToken
+
           })
+
         }
       );
 
 
-    const data =
-      await res.json();
+    let data;
 
 
-    if (!res.ok || !data.success) {
+    try {
 
-      msg.textContent =
-        data.message ||
-        "Pi login failed.";
+      data =
+        await res.json();
+
+    } catch (jsonError) {
+
+      throw new Error(
+        "The server returned an invalid response."
+      );
+
+    }
+
+
+    if (
+      !res.ok ||
+      !data.success
+    ) {
+
+      if (msg) {
+
+        msg.textContent =
+          data.message ||
+          "Pi login failed.";
+
+      }
+
 
       return;
 
@@ -209,12 +384,17 @@ async function loginWithPi() {
 
 
     /* =====================================================
-       CHECK VENDOR STATUS
+       APPROVED VENDOR
     ===================================================== */
 
     if (
-      data.user?.role === "vendor" &&
-      data.user?.status === "approved"
+
+      data.user?.role ===
+        "vendor" &&
+
+      data.user?.status ===
+        "approved"
+
     ) {
 
       localStorage.setItem(
@@ -222,23 +402,32 @@ async function loginWithPi() {
         data.token
       );
 
+
       localStorage.setItem(
         "vendorToken",
         data.token
       );
 
+
       localStorage.setItem(
         "user",
-        JSON.stringify(data.user)
+        JSON.stringify(
+          data.user
+        )
       );
 
 
-      msg.textContent =
-        "Vendor login successful ✔";
+      if (msg) {
+
+        msg.textContent =
+          "Vendor login successful ✔";
+
+      }
 
 
       window.location.href =
         "vendor-dashboard.html";
+
 
       return;
 
@@ -254,8 +443,13 @@ async function loginWithPi() {
       "pending"
     ) {
 
-      msg.textContent =
-        "Your vendor application is still awaiting Admin approval.";
+      if (msg) {
+
+        msg.textContent =
+          "Your vendor application is still awaiting Admin approval.";
+
+      }
+
 
       return;
 
@@ -271,10 +465,16 @@ async function loginWithPi() {
       "rejected"
     ) {
 
-      msg.textContent =
-        "Your previous vendor application was rejected. You may submit a new application.";
+      if (msg) {
+
+        msg.textContent =
+          "Your previous vendor application was rejected. You may submit a new application.";
+
+      }
+
 
       showRegister();
+
 
       return;
 
@@ -285,8 +485,13 @@ async function loginWithPi() {
        NOT A VENDOR
     ===================================================== */
 
-    msg.textContent =
-      "This Pi account is not an approved vendor. Please register as a vendor first.";
+    if (msg) {
+
+      msg.textContent =
+        "This Pi account is not an approved vendor. Please register as a vendor first.";
+
+    }
+
 
     showRegister();
 
@@ -294,17 +499,25 @@ async function loginWithPi() {
   } catch (error) {
 
     console.error(
-      "Pi vendor login error:",
+      "[PI] Vendor login error:",
       error
     );
 
-    msg.textContent =
-      error.message ||
-      "Pi login failed.";
+
+    if (msg) {
+
+      msg.textContent =
+        error.message ||
+        "Pi login failed.";
+
+    }
+
 
   } finally {
 
-    btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+    }
 
   }
 
@@ -315,8 +528,13 @@ async function loginWithPi() {
    VENDOR APPLICATION
 ========================================================= */
 
-$("vendorForm")
-  .addEventListener(
+const vendorForm =
+  $("vendorForm");
+
+
+if (vendorForm) {
+
+  vendorForm.addEventListener(
     "submit",
     async e => {
 
@@ -326,14 +544,22 @@ $("vendorForm")
       const btn =
         $("registerBtn");
 
+
       const msg =
         $("registerMsg");
 
 
-      btn.disabled = true;
+      if (btn) {
+        btn.disabled = true;
+      }
 
-      msg.textContent =
-        "Verifying Pi account and submitting...";
+
+      if (msg) {
+
+        msg.textContent =
+          "Verifying Pi account and submitting...";
+
+      }
 
 
       try {
@@ -359,42 +585,18 @@ $("vendorForm")
         }
 
 
-        /* =================================================
-           PI WALLET ADDRESS
-        ================================================= */
-
-        const walletInput =
-          $("piWalletAddress");
-
-
-        if (!walletInput) {
-
-          throw new Error(
-            "Pi wallet address field is missing from the registration form."
-          );
-
-        }
-
-
-        const piWalletAddress =
-          walletInput.value.trim();
-
-
         /*
-         * We still keep your existing
-         * registration field.
+         * IMPORTANT:
          *
-         * The backend will store it.
+         * We no longer require the vendor to manually
+         * enter a wallet address.
+         *
+         * The wallet_address permission is granted
+         * through Pi.authenticate().
+         *
+         * The backend verifies the permission from
+         * the Pi access token.
          */
-
-        if (!piWalletAddress) {
-
-          throw new Error(
-            "Please enter your Pi wallet address."
-          );
-
-        }
-
 
         const body = {
 
@@ -424,10 +626,7 @@ $("vendorForm")
           business_description:
             $("businessDescription")
               .value
-              .trim(),
-
-          pi_wallet_address:
-            piWalletAddress
+              .trim()
 
         };
 
@@ -439,8 +638,10 @@ $("vendorForm")
               method: "POST",
 
               headers: {
+
                 "Content-Type":
                   "application/json"
+
               },
 
               body:
@@ -450,50 +651,93 @@ $("vendorForm")
           );
 
 
-        const data =
-          await res.json();
+        let data;
 
 
-        if (!res.ok) {
+        try {
 
-          msg.textContent =
-            data.message ||
-            "Application failed.";
+          data =
+            await res.json();
+
+        } catch (jsonError) {
+
+          throw new Error(
+            "The server returned an invalid response."
+          );
+
+        }
+
+
+        if (
+          !res.ok ||
+          !data.success
+        ) {
+
+          if (msg) {
+
+            msg.textContent =
+              data.message ||
+              "Application failed.";
+
+          }
+
 
           return;
 
         }
 
 
-        msg.textContent =
-          "Application submitted successfully. Please wait for Admin approval.";
+        if (msg) {
 
-        $("vendorForm").reset();
+          msg.textContent =
+            "Application submitted successfully. Please wait for Admin approval.";
+
+        }
+
+
+        vendorForm.reset();
 
 
       } catch (error) {
 
         console.error(
-          "Vendor registration error:",
+          "[PI] Vendor registration error:",
           error
         );
 
-        msg.textContent =
-          error.message ||
-          "Unable to submit application.";
+
+        if (msg) {
+
+          msg.textContent =
+            error.message ||
+            "Unable to submit application.";
+
+        }
 
       } finally {
 
-        btn.disabled = false;
+        if (btn) {
+          btn.disabled = false;
+        }
 
       }
 
     }
   );
 
+}
+
 
 /* =========================================================
    INITIALIZE
 ========================================================= */
 
-initPi();
+initPi()
+  .catch(error => {
+
+    console.error(
+      "[PI] Initial startup error:",
+      error
+    );
+
+  });
