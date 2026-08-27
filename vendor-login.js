@@ -105,7 +105,20 @@ async function piAuth() {
   initPi();
 
   return await Pi.authenticate(
-    ["username"],
+
+    /*
+     * username:
+     *      Needed for vendor identity.
+     *
+     * wallet_address:
+     *      Needed so Pi can provide the vendor's
+     *      current receiving wallet address.
+     */
+    [
+      "username",
+      "wallet_address"
+    ],
+
     function (payment) {
 
       console.log(
@@ -114,6 +127,7 @@ async function piAuth() {
       );
 
     }
+
   );
 
 }
@@ -325,8 +339,8 @@ $("vendorForm")
       try {
 
         /*
-         * Vendor application MUST also
-         * begin with Pi authentication.
+         * Vendor application MUST begin
+         * with Pi authentication.
          */
 
         const auth =
@@ -365,6 +379,13 @@ $("vendorForm")
         const piWalletAddress =
           walletInput.value.trim();
 
+
+        /*
+         * We still keep your existing
+         * registration field.
+         *
+         * The backend will store it.
+         */
 
         if (!piWalletAddress) {
 
