@@ -1285,9 +1285,11 @@ async function loadPendingPayouts() {
 
 
     const payouts =
-      Array.isArray(data)
-        ? data
-        : data.payouts;
+  Array.isArray(data)
+    ? data
+    : Array.isArray(data.earnings)
+      ? data.earnings
+      : [];
 
 
     if (
