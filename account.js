@@ -344,30 +344,553 @@ function removeCartItem(index){
   loadCart();
 }
 
+/*=====================================
+          LOAD NOTIFICATIONS
+=====================================*/
+
 async function loadNotifications(){
+
   if(!requireAccount()) return;
-  const box=document.getElementById("content");
+
+
+  const box =
+    document.getElementById("content");
+
+
+  if(!box) return;
+
+
+  box.innerHTML =
+    '<div class="card">Loading notifications and invitations...</div>';
+
+
   try{
-    const res=await fetch(`${ACCOUNT_API}/notifications`,{headers:accountHeaders()});
-    const data=await res.json().catch(()=>[]);
-    if(!res.ok) throw new Error(data.message||"Unable to load notifications");
-    const rows=Array.isArray(data)?data:(data.notifications||[]);
-    if(!rows.length){
-      box.innerHTML='<div class="card">No notifications.</div>';
-      return;
+
+    const headers =
+      accountHeaders();
+
+
+    const [
+      notificationResponse,
+      invitationResponse
+    ] =
+      await Promise.all([
+
+        fetch(
+          `${ACCOUNT_API}/notifications`,
+          {
+            headers
+          }
+        ),
+
+        fetch(
+          `${ACCOUNT_API}/admin-request/invitations`,
+          {
+            headers
+          }
+        )
+
+      ]);
+
+
+    const notificationData =
+      await notificationResponse
+        .json()
+        .catch(() => []);
+
+
+    const invitationData =
+      await invitationResponse
+        .json()
+        .catch(() => ({
+          invitations: []
+        }));
+
+
+    /* =====================================================
+       NORMAL NOTIFICATIONS
+    ===================================================== */
+
+    const notifications =
+      Array.isArray(
+        notificationData
+      )
+        ? notificationData
+        : Array.isArray(
+            notificationData.notifications
+          )
+            ? notificationData.notifications
+            : [];
+
+
+    /* =====================================================
+       ADMIN INVITATIONS
+    ===================================================== */
+
+    const invitations =
+      Array.isArray(
+        invitationData.invitations
+      )
+        ? invitationData.invitations
+        : [];
+
+
+    let html = "";
+
+
+    /* =====================================================
+       ADMIN INVITATIONS
+    ===================================================== */
+
+    if(
+      invitations.length
+    ){
+
+      html += `
+        <div class="card">
+
+          <h2>
+            ✉️ Administrator Invitations
+          </h2>
+
+          <p>
+            Invitations sent to your Pi account
+            by the Super Admin.
+          </p>
+
+      `;
+
+
+      invitations.forEach(
+        invitation => {
+
+          const status =
+            String(
+              invitation.status ||
+              "pending"
+            ).toLowerCase();
+
+
+          const invitationId =
+            Number(
+              invitation.id
+            );
+
+
+          const adminLevel =
+            invitation.admin_level ||
+            "admin";
+
+
+          if(
+            status === "pending"
+          ){
+
+            html += `
+              <div class="card">
+
+                <h3>
+                  👑 Administrator Invitation
+                </h3>
+
+                <p>
+                  You have been invited to apply
+                  for
+                  <strong>
+                    ${escapeHTML(
+                      adminLevel
+                    )}
+                  </strong>
+                  access.
+                </p>
+
+                <p>
+                  Expires:
+                  ${escapeHTML(
+                    invitation.expires_at ||
+                    ""
+                  )}
+                </p>
+
+                <button
+                  type="button"
+                  onclick="acceptAdminInvitation(${invitationId})"
+                >
+                  ✅ Accept Invitation
+                </button>
+
+              </div>
+            `;
+
+          }
+
+
+          else if(
+            status === "accepted"
+          ){
+
+            html += `
+              <div class="card">
+
+                <h3>
+                  ✅ Invitation Accepted
+                </h3>
+
+                <p>
+                  You accepted the
+                  <strong>
+                    ${escapeHTML(
+                      adminLevel
+                    )}
+                  </strong>
+                  administrator invitation.
+                </p>
+
+                <button
+                  type="button"
+                  onclick="requestAdminAccess('${escapeHTML(adminLevel)}')"
+                >
+                  👑 Request Administrator Access
+                </button>
+
+              </div>
+            `;
+
+          }
+
+
+          else if(
+            status === "expired"
+          ){
+
+            html += `
+              <div class="card">
+
+                <strong>
+                  ⏰ Administrator Invitation Expired
+                </strong>
+
+                <p>
+                  This invitation is no longer valid.
+                </p>
+
+              </div>
+            `;
+
+          }
+
+
+          else if(
+            status === "revoked"
+          ){
+
+            html += `
+              <div class="card">
+
+                <strong>
+                  ❌ Administrator Invitation Revoked
+                </strong>
+
+                <p>
+                  This invitation has been revoked
+                  by the Super Admin.
+                </p>
+
+              </div>
+            `;
+
+          }
+
+        }
+      );
+
+
+      html += `
+        </div>
+      `;
+
     }
-    box.innerHTML=rows.map(n=>`
+
+
+    /* =====================================================
+       NORMAL NOTIFICATIONS
+    ===================================================== */
+
+    html += `
       <div class="card">
-        <strong>${escapeHTML(n.type||"general")}</strong>
-        <p>${escapeHTML(n.message)}</p>
-        <small>${escapeHTML(n.created_at||"")}</small>
-      </div>`).join("");
-    fetch(`${ACCOUNT_API}/notifications/read-all`,{
-      method:"POST",headers:accountHeaders()
-    }).catch(()=>{});
-  }catch(e){
-    box.innerHTML=`<div class="card">${escapeHTML(e.message)}</div>`;
+
+        <h2>
+          🔔 Notifications
+        </h2>
+
+    `;
+
+
+    if(
+      !notifications.length
+    ){
+
+      html += `
+        <p>
+          No normal notifications.
+        </p>
+      `;
+
+    }else{
+
+      html +=
+        notifications
+          .map(
+            n => `
+              <div class="card">
+
+                <strong>
+                  ${escapeHTML(
+                    n.type ||
+                    "general"
+                  )}
+                </strong>
+
+                <p>
+                  ${escapeHTML(
+                    n.message
+                  )}
+                </p>
+
+                <small>
+                  ${escapeHTML(
+                    n.created_at ||
+                    ""
+                  )}
+                </small>
+
+              </div>
+            `
+          )
+          .join("");
+
+    }
+
+
+    html += `
+      </div>
+    `;
+
+
+    box.innerHTML =
+      html;
+
+
+    /*
+     * Mark normal notifications as read.
+     *
+     * Do NOT mark invitation records as read
+     * because invitations have their own status.
+     */
+
+    fetch(
+      `${ACCOUNT_API}/notifications/read-all`,
+      {
+        method:"POST",
+        headers:accountHeaders()
+      }
+    ).catch(() => {});
+
+
+  }catch(error){
+
+    console.error(
+      "Notifications/invitations error:",
+      error
+    );
+
+
+    box.innerHTML =
+      `<div class="card">
+        ${escapeHTML(
+          error.message ||
+          "Unable to load notifications."
+        )}
+      </div>`;
+
   }
+
+}
+
+/* =========================================================
+   ACCEPT ADMIN INVITATION
+========================================================= */
+
+async function acceptAdminInvitation(
+  invitationId
+){
+
+  if(!requireAccount()) return;
+
+
+  const confirmed =
+    window.confirm(
+      "Accept this administrator invitation?"
+    );
+
+
+  if(!confirmed){
+    return;
+  }
+
+
+  try{
+
+    const res =
+      await fetch(
+        `${ACCOUNT_API}/admin-request/invitations/${Number(invitationId)}/accept`,
+        {
+          method:"POST",
+
+          headers:{
+            ...accountHeaders(),
+            "Content-Type":
+              "application/json"
+          }
+        }
+      );
+
+
+    const data =
+      await res
+        .json()
+        .catch(() => ({}));
+
+
+    if(!res.ok){
+
+      throw new Error(
+        data.message ||
+        "Unable to accept administrator invitation."
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Administrator invitation accepted."
+    );
+
+
+    await loadNotifications();
+
+
+  }catch(error){
+
+    console.error(
+      "Accept admin invitation error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Failed to accept administrator invitation."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   REQUEST ADMIN ACCESS
+========================================================= */
+
+async function requestAdminAccess(
+  adminLevel
+){
+
+  if(!requireAccount()) return;
+
+
+  const level =
+    adminLevel === "moderator"
+      ? "moderator"
+      : "admin";
+
+
+  const confirmed =
+    window.confirm(
+      `Submit your request for ${level} administrator access?`
+    );
+
+
+  if(!confirmed){
+    return;
+  }
+
+
+  try{
+
+    const res =
+      await fetch(
+        `${ACCOUNT_API}/admin-request/request`,
+        {
+          method:"POST",
+
+          headers:{
+            ...accountHeaders(),
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              admin_level:
+                level
+            })
+
+        }
+      );
+
+
+    const data =
+      await res
+        .json()
+        .catch(() => ({}));
+
+
+    if(!res.ok){
+
+      throw new Error(
+        data.message ||
+        "Unable to submit administrator request."
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Administrator request submitted successfully."
+    );
+
+
+    await loadNotifications();
+
+
+  }catch(error){
+
+    console.error(
+      "Admin access request error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Failed to submit administrator request."
+    );
+
+  }
+
 }
 
 function loadSaved(){

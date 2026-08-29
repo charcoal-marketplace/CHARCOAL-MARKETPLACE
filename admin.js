@@ -1510,6 +1510,612 @@ async function releaseVendorPayout(
 }
 
 /* =========================================================
+   ADMIN INVITATION CENTER
+========================================================= */
+
+function isSuperAdmin() {
+
+  return (
+    window.currentAdmin &&
+    window.currentAdmin.role === "admin" &&
+    window.currentAdmin.admin_level === "super_admin"
+  );
+
+}
+
+
+/* =========================================================
+   SEND ADMIN INVITATION
+========================================================= */
+
+async function sendAdminInvitation(event) {
+
+  event.preventDefault();
+
+
+  if (!isSuperAdmin()) {
+
+    alert(
+      "Only the Super Admin can send administrator invitations."
+    );
+
+    return;
+
+  }
+
+
+  const usernameInput =
+    document.getElementById(
+      "invitePiUsername"
+    );
+
+
+  const uidInput =
+    document.getElementById(
+      "invitePiUid"
+    );
+
+
+  const levelInput =
+    document.getElementById(
+      "inviteAdminLevel"
+    );
+
+
+  const messageBox =
+    document.getElementById(
+      "invitationMessage"
+    );
+
+
+  const button =
+    document.getElementById(
+      "sendInvitationBtn"
+    );
+
+
+  const piUsername =
+    usernameInput
+      ? usernameInput.value.trim()
+      : "";
+
+
+  const piUid =
+    uidInput
+      ? uidInput.value.trim()
+      : "";
+
+
+  const adminLevel =
+    levelInput
+      ? levelInput.value
+      : "admin";
+
+
+  if (
+    !piUsername &&
+    !piUid
+  ) {
+
+    if (messageBox) {
+
+      messageBox.textContent =
+        "Enter the Pi username or Pi UID.";
+
+    }
+
+    return;
+
+  }
+
+
+  if (
+    button
+  ) {
+
+    button.disabled =
+      true;
+
+  }
+
+
+  if (messageBox) {
+
+    messageBox.textContent =
+      "Sending administrator invitation...";
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/invitations`,
+        {
+          method: "POST",
+
+          headers:
+            getHeaders(),
+
+          body:
+            JSON.stringify({
+
+              pi_username:
+                piUsername ||
+                null,
+
+              pi_uid:
+                piUid ||
+                null,
+
+              admin_level:
+                adminLevel
+
+            })
+
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      if (messageBox) {
+
+        messageBox.textContent =
+          data.message ||
+          "Failed to send invitation.";
+
+      }
+
+      return;
+
+    }
+
+
+    if (messageBox) {
+
+      messageBox.textContent =
+        data.message ||
+        "Invitation sent successfully.";
+
+    }
+
+
+    alert(
+      data.message ||
+      "Administrator invitation sent successfully."
+    );
+
+
+    const form =
+      document.getElementById(
+        "adminInvitationForm"
+      );
+
+
+    if (form) {
+
+      form.reset();
+
+    }
+
+
+    await loadAdminInvitations();
+
+
+  } catch (error) {
+
+    console.error(
+      "Send admin invitation error:",
+      error
+    );
+
+
+    if (messageBox) {
+
+      messageBox.textContent =
+        "Unable to connect to the server.";
+
+    }
+
+  } finally {
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   LOAD ADMIN INVITATIONS
+========================================================= */
+
+async function loadAdminInvitations() {
+
+  const container =
+    document.getElementById(
+      "adminInvitationsList"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  if (!isSuperAdmin()) {
+
+    container.innerHTML =
+      "<p>Only the Super Admin can view invitations.</p>";
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    "<p>Loading invitations...</p>";
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/invitations`,
+        {
+          method: "GET",
+
+          headers:
+            getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Unable to load invitations."
+      );
+
+    }
+
+
+    const invitations =
+      Array.isArray(
+        data.invitations
+      )
+        ? data.invitations
+        : [];
+
+
+    if (
+      !invitations.length
+    ) {
+
+      container.innerHTML =
+        "<p>No administrator invitations yet.</p>";
+
+      return;
+
+    }
+
+
+    container.innerHTML =
+      invitations
+        .map(
+          invitation => {
+
+            const status =
+              String(
+                invitation.status ||
+                "pending"
+              ).toLowerCase();
+
+
+            const canRevoke =
+              status === "pending";
+
+
+            return `
+              <div class="card">
+
+                <h3>
+                  ✉️
+                  ${escapeHTML(
+                    invitation.invited_pi_username ||
+                    invitation.invited_name ||
+                    "Pi User"
+                  )}
+                </h3>
+
+                <p>
+                  Pi UID:
+                  <small>
+                    ${escapeHTML(
+                      invitation.invited_pi_uid ||
+                      "N/A"
+                    )}
+                  </small>
+                </p>
+
+                <p>
+                  Admin Level:
+                  <strong>
+                    ${escapeHTML(
+                      invitation.admin_level
+                    )}
+                  </strong>
+                </p>
+
+                <p>
+                  Status:
+                  <strong>
+                    ${escapeHTML(
+                      status
+                    )}
+                  </strong>
+                </p>
+
+                <p>
+                  Expires:
+                  ${escapeHTML(
+                    invitation.expires_at ||
+                    ""
+                  )}
+                </p>
+
+                ${
+                  invitation.invited_name
+                    ? `
+                      <p>
+                        User:
+                        ${escapeHTML(
+                          invitation.invited_name
+                        )}
+                      </p>
+                    `
+                    : ""
+                }
+
+                ${
+                  canRevoke
+                    ? `
+                      <button
+                        type="button"
+                        onclick="revokeAdminInvitation(${Number(invitation.id)})"
+                      >
+                        ❌ Revoke
+                      </button>
+                    `
+                    : ""
+                }
+
+              </div>
+            `;
+
+          }
+        )
+        .join("");
+
+
+  } catch (error) {
+
+    console.error(
+      "Load admin invitations error:",
+      error
+    );
+
+
+    container.innerHTML =
+      `<p>${escapeHTML(
+        error.message ||
+        "Unable to load invitations."
+      )}</p>`;
+
+  }
+
+}
+
+
+/* =========================================================
+   REVOKE ADMIN INVITATION
+========================================================= */
+
+async function revokeAdminInvitation(
+  invitationId
+) {
+
+  if (
+    !isSuperAdmin()
+  ) {
+
+    alert(
+      "Only the Super Admin can revoke invitations."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    !confirm(
+      "Revoke this administrator invitation?"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/invitations/${Number(invitationId)}/revoke`,
+        {
+          method: "POST",
+
+          headers:
+            getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      alert(
+        data.message ||
+        "Failed to revoke invitation."
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      data.message ||
+      "Invitation revoked successfully."
+    );
+
+
+    await loadAdminInvitations();
+
+
+  } catch (error) {
+
+    console.error(
+      "Revoke invitation error:",
+      error
+    );
+
+
+    alert(
+      "Unable to revoke invitation."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   INVITATION FORM
+========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    const form =
+      document.getElementById(
+        "adminInvitationForm"
+      );
+
+
+    if (form) {
+
+      form.addEventListener(
+        "submit",
+        sendAdminInvitation
+      );
+
+    }
+
+  }
+);
+
+/* =========================================================
    IMAGE URL
 ========================================================= */
 
