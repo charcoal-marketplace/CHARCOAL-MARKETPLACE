@@ -1360,10 +1360,36 @@ async function loadPendingPayouts() {
             )}
           </p>
 
+          <p>
+            Buyer Confirmation:
+            ${payout.buyer_confirmed_at
+              ? "Confirmed ✔"
+              : "Waiting for buyer confirmation"}
+          </p>
+
+          ${payout.payout_error
+            ? `
+              <p style="color:#b00020;">
+                Payout Error:
+                <br>
+                <small>
+                  ${escapeHTML(String(payout.payout_error))}
+                </small>
+              </p>
+            `
+            : ""}
+
           <button
+            ${payout.payout_ready === 1 || payout.payout_ready === true
+              ? ""
+              : "disabled"}
             onclick="releaseVendorPayout(${payout.id})"
           >
-            💰 Release Pi
+            ${payout.payout_ready === 1 || payout.payout_ready === true
+              ? "💰 Release Pi"
+              : payout.buyer_confirmed_at
+                ? "🔒 Payout Not Ready"
+                : "⏳ Awaiting Buyer Confirmation"}
           </button>
 
         </div>
@@ -1462,6 +1488,8 @@ async function releaseVendorPayout(
 
       alert(
         data.message ||
+        data.error?.error_message ||
+        data.error?.message ||
         "Pi payout failed."
       );
 
@@ -1474,6 +1502,8 @@ async function releaseVendorPayout(
 
       alert(
         data.message ||
+        data.error?.error_message ||
+        data.error?.message ||
         "Pi payout was not completed."
       );
 

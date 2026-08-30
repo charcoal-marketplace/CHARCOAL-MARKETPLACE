@@ -195,15 +195,19 @@ async function piAuth() {
    * permission so the backend can receive the vendor's
    * verified receiving address.
    *
-   * Current Pi SDK scopes:
+   * Required vendor scopes:
    *
-   * username
-   * wallet_address
+   * username        -> vendor identity
+   * payments        -> keeps vendor account authorized for
+   *                    marketplace payment capabilities
+   * wallet_address  -> required for A2U vendor payouts
    */
 
   const scopes = [
 
     "username",
+
+    "payments",
 
     "wallet_address"
 
@@ -597,38 +601,16 @@ if (vendorForm) {
            WALLET ADDRESS
         =================================================
 
-           The field is retained for compatibility with your
-           existing HTML.
+           IMPORTANT:
+           Do NOT trust a wallet address typed by the vendor.
 
-           The backend will prefer the wallet address returned
-           by the verified Pi account.
+           The backend will obtain the authoritative wallet
+           from Pi /me after the vendor grants the
+           wallet_address scope.
+
+           The old HTML field is intentionally ignored here
+           for backward compatibility.
         */
-
-        const walletInput =
-          $("piWalletAddress");
-
-
-        let piWalletAddress =
-          "";
-
-
-        if (walletInput) {
-
-          piWalletAddress =
-            walletInput
-              .value
-              .trim();
-
-        }
-
-
-        /*
-         * Do not block registration solely because the HTML
-         * wallet input is empty.
-         *
-         * The backend can use the wallet_address returned
-         * from Pi after the user authorizes that scope.
-         */
 
         const body = {
 
@@ -666,13 +648,12 @@ if (vendorForm) {
             "",
 
           /*
-           * Kept for backward compatibility.
-           *
-           * Backend prefers the verified Pi wallet.
+           * Kept only for compatibility with older backends.
+           * The corrected backend NEVER trusts this value.
            */
 
           pi_wallet_address:
-            piWalletAddress
+            ""
 
         };
 
