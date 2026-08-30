@@ -7,6 +7,7 @@ const $ =
     document.getElementById(id);
 
 
+
 /* =========================================================
    PI INITIALIZATION
 ========================================================= */
@@ -19,16 +20,27 @@ async function initPi() {
       "[PI AUTH] Pi SDK is not available."
     );
 
-    return;
+    return false;
 
   }
 
 
   try {
 
+    /*
+     * TESTNET / MAINNET
+     *
+     * Your existing system can still use PI_SANDBOX=true
+     * for Testnet testing.
+     *
+     * Production Mainnet should NOT have PI_SANDBOX=true
+     * in localStorage.
+     */
+
     const piSandbox =
       location.hostname ===
         "sandbox.minepi.com" ||
+
       localStorage.getItem(
         "PI_SANDBOX"
       ) === "true";
@@ -50,19 +62,18 @@ async function initPi() {
     }
 
 
-    /*
-     * Pi SDK 2.0 initialization.
-     */
-
     await Pi.init(
       options
     );
 
 
     console.log(
-      "[PI AUTH] Pi SDK initialized.",
+      "[PI AUTH] Pi SDK initialized:",
       options
     );
+
+
+    return true;
 
 
   } catch (error) {
@@ -72,9 +83,13 @@ async function initPi() {
       error
     );
 
+
+    return false;
+
   }
 
 }
+
 
 
 /* =========================================================
@@ -125,6 +140,7 @@ function showRegister() {
 }
 
 
+
 /* =========================================================
    SHOW LOGIN
 ========================================================= */
@@ -173,11 +189,13 @@ function showLogin() {
 }
 
 
+
 /* =========================================================
    PI AUTHENTICATION
 ========================================================= */
 
 async function piAuth() {
+
 
   if (!window.Pi) {
 
@@ -189,18 +207,22 @@ async function piAuth() {
 
 
   /*
+   * These are the permissions used by your application.
+   *
+   * username:
+   *   Identifies the Pioneer.
+   *
+   * payments:
+   *   Required by the Pi payment functionality.
+   *
+   * wallet_address:
+   *   Allows the app to receive the authenticated user's
+   *   wallet address when the Pioneer grants permission.
+   *
    * IMPORTANT:
    *
-   * Mainnet vendor accounts need the wallet address
-   * permission so the backend can receive the vendor's
-   * verified receiving address.
-   *
-   * Required vendor scopes:
-   *
-   * username        -> vendor identity
-   * payments        -> keeps vendor account authorized for
-   *                    marketplace payment capabilities
-   * wallet_address  -> required for A2U vendor payouts
+   * wallet_address is NOT required merely to log into
+   * the vendor dashboard.
    */
 
   const scopes = [
@@ -215,23 +237,29 @@ async function piAuth() {
 
 
   console.log(
-    "[PI AUTH] Requesting Pi scopes:",
+    "[PI AUTH] Requesting scopes:",
     scopes
   );
 
 
-  /*
-   * Make sure Pi has finished initialization.
-   */
+  const initialized =
+    await initPi();
 
-  await initPi();
+
+  if (!initialized) {
+
+    throw new Error(
+      "Pi SDK could not be initialized."
+    );
+
+  }
 
 
   /*
    * Authenticate with Pi.
    *
-   * Only the accessToken is sent to the backend.
-   * The backend verifies it against Pi /me.
+   * The backend receives ONLY the access token and
+   * independently verifies it against Pi /me.
    */
 
   const auth =
@@ -242,7 +270,7 @@ async function piAuth() {
       function (payment) {
 
         console.log(
-          "[PI AUTH] Incomplete payment:",
+          "[PI AUTH] Incomplete payment found:",
           payment
         );
 
@@ -251,13 +279,25 @@ async function piAuth() {
     );
 
 
+  if (
+    !auth ||
+    !auth.accessToken
+  ) {
+
+    throw new Error(
+      "Pi authentication did not return an access token."
+    );
+
+  }
+
+
   console.log(
-    "[PI AUTH] Authentication completed."
+    "[PI AUTH] Pi authentication completed."
   );
 
 
   /*
-   * We deliberately do NOT trust auth.user as the
+   * Do not trust frontend user information as the
    * backend identity source.
    *
    * The backend verifies auth.accessToken with Pi.
@@ -268,14 +308,17 @@ async function piAuth() {
 }
 
 
+
 /* =========================================================
    PI VENDOR LOGIN
 ========================================================= */
 
 async function loginWithPi() {
 
+
   const btn =
     $("piLoginBtn");
+
 
   const msg =
     $("loginMsg");
@@ -299,6 +342,11 @@ async function loginWithPi() {
 
   try {
 
+
+    /* =====================================================
+       AUTHENTICATE
+    ===================================================== */
+
     const auth =
       await piAuth();
 
@@ -319,8 +367,14 @@ async function loginWithPi() {
 
       msg.textContent =
         "Verifying your Pi account...";
+
     }
 
+
+
+    /* =====================================================
+       SEND ACCESS TOKEN TO BACKEND
+    ===================================================== */
 
     const res =
       await fetch(
@@ -352,7 +406,9 @@ async function loginWithPi() {
       );
 
 
+
     let data;
+
 
     try {
 
@@ -367,6 +423,11 @@ async function loginWithPi() {
 
     }
 
+
+
+    /* =====================================================
+       SERVER ERROR
+    ===================================================== */
 
     if (
       !res.ok ||
@@ -386,6 +447,7 @@ async function loginWithPi() {
     }
 
 
+
     /* =====================================================
        APPROVED VENDOR
     ===================================================== */
@@ -399,6 +461,7 @@ async function loginWithPi() {
         "approved"
 
     ) {
+
 
       localStorage.setItem(
         "token",
@@ -420,6 +483,25 @@ async function loginWithPi() {
       );
 
 
+      /*
+       * Save the verified wallet address if Pi supplied it.
+       *
+       * This is NOT used as a trusted source for payout.
+       * The backend remains the authority.
+       */
+
+      if (
+        data.user?.pi_wallet_address
+      ) {
+
+        localStorage.setItem(
+          "vendorWalletAddress",
+          data.user.pi_wallet_address
+        );
+
+      }
+
+
       if (msg) {
 
         msg.textContent =
@@ -435,6 +517,7 @@ async function loginWithPi() {
       return;
 
     }
+
 
 
     /* =====================================================
@@ -460,6 +543,7 @@ async function loginWithPi() {
     }
 
 
+
     /* =====================================================
        REJECTED APPLICATION
     ===================================================== */
@@ -481,9 +565,11 @@ async function loginWithPi() {
 
       showRegister();
 
+
       return;
 
     }
+
 
 
     /* =====================================================
@@ -503,6 +589,7 @@ async function loginWithPi() {
 
   } catch (error) {
 
+
     console.error(
       "[PI AUTH] Pi vendor login error:",
       error
@@ -520,6 +607,7 @@ async function loginWithPi() {
 
   } finally {
 
+
     if (btn) {
 
       btn.disabled =
@@ -532,6 +620,7 @@ async function loginWithPi() {
 }
 
 
+
 /* =========================================================
    VENDOR APPLICATION
 ========================================================= */
@@ -542,17 +631,20 @@ const vendorForm =
 
 if (vendorForm) {
 
+
   vendorForm.addEventListener(
 
     "submit",
 
     async e => {
 
+
       e.preventDefault();
 
 
       const btn =
         $("registerBtn");
+
 
       const msg =
         $("registerMsg");
@@ -576,10 +668,10 @@ if (vendorForm) {
 
       try {
 
-        /*
-         * Vendor application MUST begin
-         * with Pi authentication.
-         */
+
+        /* =================================================
+           PI AUTHENTICATION
+        ================================================= */
 
         const auth =
           await piAuth();
@@ -597,25 +689,16 @@ if (vendorForm) {
         }
 
 
+
         /* =================================================
-           WALLET ADDRESS
-        =================================================
-
-           IMPORTANT:
-           Do NOT trust a wallet address typed by the vendor.
-
-           The backend will obtain the authoritative wallet
-           from Pi /me after the vendor grants the
-           wallet_address scope.
-
-           The old HTML field is intentionally ignored here
-           for backward compatibility.
-        */
+           VENDOR INFORMATION
+        ================================================= */
 
         const body = {
 
           accessToken:
             auth.accessToken,
+
 
           name:
             $("vendorName")
@@ -623,11 +706,13 @@ if (vendorForm) {
               ?.trim() ||
             "",
 
+
           business_name:
             $("businessName")
               ?.value
               ?.trim() ||
             "",
+
 
           business_phone:
             $("businessPhone")
@@ -635,28 +720,37 @@ if (vendorForm) {
               ?.trim() ||
             "",
 
+
           business_location:
             $("businessLocation")
               ?.value
               ?.trim() ||
             "",
 
+
           business_description:
             $("businessDescription")
               ?.value
               ?.trim() ||
-            "",
-
-          /*
-           * Kept only for compatibility with older backends.
-           * The corrected backend NEVER trusts this value.
-           */
-
-          pi_wallet_address:
             ""
 
         };
 
+
+        /*
+         * IMPORTANT:
+         *
+         * There is NO manually entered wallet address.
+         *
+         * The backend verifies the access token against
+         * Pi /me and stores wallet_address if Pi supplies it.
+         */
+
+
+
+        /* =================================================
+           SUBMIT APPLICATION
+        ================================================= */
 
         const res =
           await fetch(
@@ -687,6 +781,7 @@ if (vendorForm) {
 
         let data;
 
+
         try {
 
           data =
@@ -701,7 +796,15 @@ if (vendorForm) {
         }
 
 
-        if (!res.ok) {
+
+        /* =================================================
+           APPLICATION FAILED
+        ================================================= */
+
+        if (
+          !res.ok ||
+          !data.success
+        ) {
 
           if (msg) {
 
@@ -716,6 +819,11 @@ if (vendorForm) {
         }
 
 
+
+        /* =================================================
+           SUCCESS
+        ================================================= */
+
         if (msg) {
 
           msg.textContent =
@@ -724,14 +832,11 @@ if (vendorForm) {
         }
 
 
-        if (vendorForm) {
-
-          vendorForm.reset();
-
-        }
+        vendorForm.reset();
 
 
       } catch (error) {
+
 
         console.error(
           "[PI AUTH] Vendor registration error:",
@@ -747,7 +852,9 @@ if (vendorForm) {
 
         }
 
+
       } finally {
+
 
         if (btn) {
 
@@ -763,6 +870,7 @@ if (vendorForm) {
   );
 
 }
+
 
 
 /* =========================================================
