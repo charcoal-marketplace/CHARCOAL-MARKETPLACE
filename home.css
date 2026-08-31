@@ -659,6 +659,164 @@ input:focus {
   background: #f2f2f2;
 }
 
+/* =========================================================
+   PRODUCT IMAGE VIEWER
+========================================================= */
+
+#productImageViewer {
+
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 99999;
+
+  display: none;
+
+}
+
+
+#productImageViewer.active {
+
+  display: block;
+
+}
+
+
+.product-image-overlay {
+
+  position: absolute;
+
+  inset: 0;
+
+  background: rgba(
+    0,
+    0,
+    0,
+    0.88
+  );
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 20px;
+
+}
+
+
+.product-image-content {
+
+  max-width: 95vw;
+
+  max-height: 90vh;
+
+  text-align: center;
+
+}
+
+
+.product-image-content img {
+
+  max-width: 95vw;
+
+  max-height: 80vh;
+
+  width: auto;
+
+  height: auto;
+
+  object-fit: contain;
+
+  border-radius: 12px;
+
+  background: #fff;
+
+  display: block;
+
+  margin: auto;
+
+}
+
+
+.product-image-content h3 {
+
+  color: white;
+
+  margin-top: 12px;
+
+  font-size: 18px;
+
+}
+
+
+.product-image-close {
+
+  position: absolute;
+
+  top: 18px;
+
+  right: 18px;
+
+  width: 45px;
+
+  height: 45px;
+
+  border: none;
+
+  border-radius: 50%;
+
+  background: white;
+
+  color: #222;
+
+  font-size: 24px;
+
+  font-weight: bold;
+
+  cursor: pointer;
+
+  z-index: 2;
+
+}
+
+
+.product-image-close:active {
+
+  transform: scale(0.95);
+
+}
+
+
+@media (max-width: 600px) {
+
+  .product-image-overlay {
+
+    padding: 10px;
+
+  }
+
+
+  .product-image-content img {
+
+    max-width: 96vw;
+
+    max-height: 78vh;
+
+  }
+
+
+  .product-image-close {
+
+    top: 10px;
+
+    right: 10px;
+
+  }
+
+}
 
 /* =========================================================
    HOME MOBILE

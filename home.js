@@ -169,10 +169,12 @@ function renderProducts(products) {
       return `
         <div class="card">
 
-          <img
+<img
   src="${imageURL}"
   alt="${safeName}"
   loading="lazy"
+  onclick="openProductImage(${product.id})"
+  style="cursor:zoom-in;"
   onerror="this.onerror=null; this.src='placeholder.png';"
 />
           
@@ -747,37 +749,273 @@ function setupActiveNavigation() {
 }
 
 
- /* =========================================================
+/* =========================================================
    IMAGE URL
+   Frontend may be on Vercel while images are on Railway.
 ========================================================= */
 
 function getImageURL(imagePath) {
 
   if (!imagePath) {
+
     return "placeholder.png";
+
   }
+
 
   const value =
     String(imagePath).trim();
 
-  /* Already a complete URL */
+
+  /* ===============================================
+     Already a complete URL
+  =============================================== */
+
   if (
     value.startsWith("http://") ||
     value.startsWith("https://")
   ) {
+
     return value;
+
   }
 
-  /* Railway serves uploaded images directly from /uploads. */
+
+  /*
+   * IMPORTANT:
+   * Uploaded product images live on the Railway backend.
+   */
+
+  const BACKEND =
+    API.replace(
+      /\/api\/?$/,
+      ""
+    );
+
+
   const cleanPath =
-    value.replace(/^\/+/, "");
+    value.replace(
+      /^\/+/,
+      ""
+    );
 
-  if (cleanPath.startsWith("uploads/")) {
-    return `/${cleanPath}`;
+
+  if (
+    cleanPath.startsWith(
+      "uploads/"
+    )
+  ) {
+
+    return `${BACKEND}/${cleanPath}`;
+
   }
 
-  return `/uploads/${cleanPath}`;
+
+  return `${BACKEND}/uploads/${cleanPath}`;
+
 }
+
+/* =========================================================
+   PRODUCT IMAGE VIEWER
+========================================================= */
+
+function openProductImage(
+  productId
+) {
+
+  const product =
+    allProducts.find(
+      item =>
+        Number(item.id) ===
+        Number(productId)
+    );
+
+
+  if (!product) {
+
+    return;
+
+  }
+
+
+  const imageURL =
+    getImageURL(
+      product.image
+    );
+
+
+  const productName =
+    escapeHTML(
+      product.name ||
+      "Product"
+    );
+
+
+  let viewer =
+    document.getElementById(
+      "productImageViewer"
+    );
+
+
+  /* ===============================================
+     CREATE VIEWER
+  =============================================== */
+
+  if (!viewer) {
+
+    viewer =
+      document.createElement(
+        "div"
+      );
+
+    viewer.id =
+      "productImageViewer";
+
+    viewer.innerHTML = `
+
+      <div
+        class="product-image-overlay"
+        onclick="closeProductImage(event)"
+      >
+
+        <button
+          type="button"
+          class="product-image-close"
+          onclick="closeProductImage(event)"
+          aria-label="Close image"
+        >
+          ✕
+        </button>
+
+        <div
+          class="product-image-content"
+          onclick="event.stopPropagation()"
+        >
+
+          <img
+            id="productImageViewerImage"
+            src=""
+            alt=""
+          >
+
+          <h3
+            id="productImageViewerTitle"
+          ></h3>
+
+        </div>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      viewer
+    );
+
+  }
+
+
+  const image =
+    document.getElementById(
+      "productImageViewerImage"
+    );
+
+
+  const title =
+    document.getElementById(
+      "productImageViewerTitle"
+    );
+
+
+  image.src =
+    imageURL;
+
+
+  image.alt =
+    product.name ||
+    "Product";
+
+
+  title.innerHTML =
+    productName;
+
+
+  viewer.classList.add(
+    "active"
+  );
+
+
+  document.body.style.overflow =
+    "hidden";
+
+}
+
+
+/* =========================================================
+   CLOSE PRODUCT IMAGE VIEWER
+========================================================= */
+
+function closeProductImage(
+  event
+) {
+
+  if (
+    event &&
+    event.target &&
+    event.currentTarget !==
+      event.target &&
+    !event.target.classList.contains(
+      "product-image-close"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const viewer =
+    document.getElementById(
+      "productImageViewer"
+    );
+
+
+  if (viewer) {
+
+    viewer.classList.remove(
+      "active"
+    );
+
+  }
+
+
+  document.body.style.overflow =
+    "";
+
+}
+
+
+/* =========================================================
+   ESC KEY
+========================================================= */
+
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key ===
+      "Escape"
+    ) {
+
+      closeProductImage();
+
+    }
+
+  }
+);
+
 
 /* =========================================================
    HTML ESCAPE

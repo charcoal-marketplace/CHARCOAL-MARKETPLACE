@@ -331,6 +331,8 @@ document.addEventListener(
 
     loadPendingVendors();
     
+    loadVendors();
+    
     loadPendingPayouts();
 
   }
@@ -376,6 +378,13 @@ function showSection(sectionId) {
 
 }
 
+if (
+  sectionId === "vendors"
+) {
+
+  loadVendors();
+
+}
 
 /* =========================================================
    DASHBOARD
@@ -847,6 +856,330 @@ async function loadPendingVendors() {
 
     container.innerHTML =
       "<p>Unable to load pending vendors.</p>";
+
+  }
+
+}
+
+/* =========================================================
+   ALL VENDORS
+   Admin → Vendors Management
+========================================================= */
+
+async function loadVendors() {
+
+  const container =
+    document.getElementById(
+      "adminVendors"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  try {
+
+    container.innerHTML =
+      "<p>Loading vendors...</p>";
+
+
+    const response =
+      await fetch(
+        `${API}/admin/vendors`,
+        {
+          method: "GET",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load vendors"
+      );
+
+    }
+
+
+    const vendors =
+      Array.isArray(data)
+        ? data
+        : Array.isArray(data.vendors)
+          ? data.vendors
+          : [];
+
+
+    if (!vendors.length) {
+
+      container.innerHTML = `
+        <div class="card">
+
+          <h3>
+            No Vendors Found
+          </h3>
+
+          <p>
+            There are currently no approved vendors.
+          </p>
+
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    container.innerHTML =
+      vendors.map(
+        vendor => `
+
+        <div class="card">
+
+          <h3>
+            🏪
+            ${escapeHTML(
+              vendor.business_name ||
+              vendor.name ||
+              "Vendor"
+            )}
+          </h3>
+
+          <p>
+            <strong>Owner:</strong>
+            ${escapeHTML(
+              vendor.name ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Pi Username:</strong>
+            ${escapeHTML(
+              vendor.pi_username ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Email:</strong>
+            ${escapeHTML(
+              vendor.email ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Phone:</strong>
+            ${escapeHTML(
+              vendor.business_phone ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Location:</strong>
+            ${escapeHTML(
+              vendor.business_location ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Vendor Status:</strong>
+            ${escapeHTML(
+              vendor.vendor_status ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Account Status:</strong>
+            ${escapeHTML(
+              vendor.status ||
+              "N/A"
+            )}
+          </p>
+
+          <p>
+            <strong>Pi Wallet:</strong>
+            <br>
+            <small>
+              ${escapeHTML(
+                vendor.pi_wallet_address ||
+                "Wallet permission not available"
+              )}
+            </small>
+          </p>
+
+          <div style="margin-top:12px;">
+
+            <button
+              type="button"
+              onclick="revokeVendor(${vendor.id})"
+              style="
+                background:#b00020;
+                color:white;
+                border:none;
+                padding:10px 14px;
+                border-radius:8px;
+                cursor:pointer;
+              "
+            >
+              🚫 Revoke Vendor
+            </button>
+
+          </div>
+
+        </div>
+
+      `
+      ).join("");
+
+
+  } catch (error) {
+
+    console.error(
+      "Load vendors error:",
+      error
+    );
+
+
+    container.innerHTML = `
+      <div class="card">
+
+        <p>
+          ❌ Unable to load vendors.
+        </p>
+
+        <button
+          type="button"
+          onclick="loadVendors()"
+        >
+          🔄 Try Again
+        </button>
+
+      </div>
+    `;
+
+  }
+
+}
+
+/* =========================================================
+   REVOKE VENDOR
+========================================================= */
+
+async function revokeVendor(
+  vendorId
+) {
+
+  if (
+    !confirm(
+      "Are you sure you want to revoke this vendor?\n\nThe vendor will lose vendor access and their active products will be disabled."
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/vendors/${vendorId}/revoke`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Vendor revoke failed"
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Vendor revoked successfully."
+    );
+
+
+    await loadVendors();
+
+    await loadDashboard();
+
+
+  } catch (error) {
+
+    console.error(
+      "Revoke vendor error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Unable to revoke vendor."
+    );
 
   }
 
@@ -1379,18 +1712,35 @@ async function loadPendingPayouts() {
             `
             : ""}
 
-          <button
-            ${payout.payout_ready === 1 || payout.payout_ready === true
-              ? ""
-              : "disabled"}
-            onclick="releaseVendorPayout(${payout.id})"
-          >
-            ${payout.payout_ready === 1 || payout.payout_ready === true
-              ? "💰 Release Pi"
-              : payout.buyer_confirmed_at
-                ? "🔒 Payout Not Ready"
-                : "⏳ Awaiting Buyer Confirmation"}
-          </button>
+            ${payout.payout_ready_reason
+  ? `
+    <p>
+      <strong>Payout Check:</strong>
+      <br>
+      <small>
+        ${escapeHTML(
+          String(payout.payout_ready_reason)
+        )}
+      </small>
+    </p>
+  `
+  : ""}
+
+
+<button
+  ${payout.payout_ready === 1 ||
+    payout.payout_ready === true
+      ? ""
+      : "disabled"}
+  onclick="releaseVendorPayout(${payout.id})"
+>
+  ${
+    payout.payout_ready === 1 ||
+    payout.payout_ready === true
+      ? "💰 Release Pi"
+      : "🔒 Payout Not Ready"
+  }
+</button>
 
         </div>
 
