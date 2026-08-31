@@ -397,7 +397,10 @@ async function loginWithPi() {
             JSON.stringify({
 
               accessToken:
-                auth.accessToken
+                auth.accessToken,
+              pi_wallet_address:
+      auth.user?.wallet_address ||
+      null
 
             })
 
@@ -694,59 +697,50 @@ if (vendorForm) {
            VENDOR INFORMATION
         ================================================= */
 
-        const body = {
+const body = {
 
-          accessToken:
-            auth.accessToken,
+  accessToken:
+    auth.accessToken,
 
+  /*
+   * Wallet address comes from the Pi SDK only.
+   * Vendor does not type this manually.
+   */
+  pi_wallet_address:
+    auth.user?.wallet_address ||
+    null,
 
-          name:
-            $("vendorName")
-              ?.value
-              ?.trim() ||
-            "",
+  name:
+    $("vendorName")
+      ?.value
+      ?.trim() ||
+    "",
 
+  business_name:
+    $("businessName")
+      ?.value
+      ?.trim() ||
+    "",
 
-          business_name:
-            $("businessName")
-              ?.value
-              ?.trim() ||
-            "",
+  business_phone:
+    $("businessPhone")
+      ?.value
+      ?.trim() ||
+    "",
 
+  business_location:
+    $("businessLocation")
+      ?.value
+      ?.trim() ||
+    "",
 
-          business_phone:
-            $("businessPhone")
-              ?.value
-              ?.trim() ||
-            "",
+  business_description:
+    $("businessDescription")
+      ?.value
+      ?.trim() ||
+    ""
 
-
-          business_location:
-            $("businessLocation")
-              ?.value
-              ?.trim() ||
-            "",
-
-
-          business_description:
-            $("businessDescription")
-              ?.value
-              ?.trim() ||
-            ""
-
-        };
-
-
-        /*
-         * IMPORTANT:
-         *
-         * There is NO manually entered wallet address.
-         *
-         * The backend verifies the access token against
-         * Pi /me and stores wallet_address if Pi supplies it.
-         */
-
-
+};
 
         /* =================================================
            SUBMIT APPLICATION
