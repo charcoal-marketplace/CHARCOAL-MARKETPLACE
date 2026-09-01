@@ -1,7 +1,7 @@
 /* =========================================================
    CHARCOAL MARKETPLACE
    PI ADMIN LOGIN
-   PI SDK AUTHENTICATION + WALLET PERMISSION
+   PI SDK AUTHENTICATION ONLY
 ========================================================= */
 
 const API =
@@ -174,7 +174,7 @@ async function checkExistingAdmin() {
 
 /* =========================================================
    PI ADMIN LOGIN
-   PI SDK + WALLET ADDRESS PERMISSION
+   PI SDK ONLY
 ========================================================= */
 
 async function loginWithPi() {
@@ -233,7 +233,7 @@ async function loginWithPi() {
        INITIALIZE PI SDK
     ----------------------------------------------------- */
 
-    Pi.init({
+    await Pi.init({
       version: "2.0"
     });
 
@@ -245,32 +245,26 @@ async function loginWithPi() {
 
     /* -----------------------------------------------------
        PI AUTHENTICATION
-       REQUIRE:
-       - username
-       - wallet_address
     ----------------------------------------------------- */
-
-    msg.innerText =
-      "Requesting administrator wallet permission...";
-
 
     const auth =
       await Pi.authenticate(
         [
           "username",
           "wallet_address"
-        ]
+        ],
+        function (payment) {
+          console.log(
+            "[PI AUTH] Incomplete payment found:",
+            payment
+          );
+        }
       );
 
 
-    /* -----------------------------------------------------
-       BASIC AUTH RESPONSE CHECK
-    ----------------------------------------------------- */
-
     if (
       !auth ||
-      !auth.accessToken ||
-      !auth.user
+      !auth.accessToken
     ) {
 
       console.error(
@@ -288,78 +282,12 @@ async function loginWithPi() {
 
 
     console.log(
-      "✅ Pi authentication successful",
-      {
-        username:
-          auth.user.username,
-
-        uid:
-          auth.user.uid,
-
-        wallet_address:
-          auth.user.wallet_address || null
-      }
-    );
-
-
-    /* -----------------------------------------------------
-       REQUIRE WALLET ADDRESS
-    ----------------------------------------------------- */
-
-    const walletAddress =
-      auth.user.wallet_address;
-
-
-    if (!walletAddress) {
-
-      console.error(
-        "❌ Pi wallet address permission was not granted.",
-        auth
-      );
-
-
-      msg.innerText =
-        "Wallet permission is required for Administrator Login. Please allow wallet access and try again.";
-
-      return;
-
-    }
-
-
-    /*
-      Basic public Pi wallet format check.
-
-      A valid Pi/Stellar public wallet address begins
-      with G and contains 56 characters total.
-    */
-
-    if (
-      !/^G[A-Z2-7]{55}$/.test(
-        String(walletAddress).trim()
-      )
-    ) {
-
-      console.error(
-        "❌ Invalid Pi wallet address returned by Pi:",
-        walletAddress
-      );
-
-
-      msg.innerText =
-        "Pi returned an invalid wallet address. Please try again.";
-
-      return;
-
-    }
-
-
-    console.log(
-      "💳 Pi wallet permission verified."
+      "✅ Pi authentication successful"
     );
 
 
     msg.innerText =
-      "Wallet verified. Verifying administrator account...";
+      "Verifying administrator account...";
 
 
     /* -----------------------------------------------------
@@ -413,10 +341,7 @@ async function loginWithPi() {
           data.code,
 
         message:
-          data.message,
-
-        wallet_verified:
-          data.wallet_verified
+          data.message
       }
     );
 
@@ -441,28 +366,6 @@ async function loginWithPi() {
         data.message ||
         "Pi admin login failed.";
 
-
-      return;
-
-    }
-
-
-    /* -----------------------------------------------------
-       REQUIRE BACKEND WALLET VERIFICATION
-    ----------------------------------------------------- */
-
-    if (
-      data.wallet_verified !== true
-    ) {
-
-      console.error(
-        "❌ Backend did not confirm wallet verification:",
-        data
-      );
-
-
-      msg.innerText =
-        "Administrator wallet verification failed.";
 
       return;
 
@@ -518,28 +421,6 @@ async function loginWithPi() {
 
 
     /* -----------------------------------------------------
-       VERIFY WALLET STORED BY BACKEND
-    ----------------------------------------------------- */
-
-    if (
-      !data.user.pi_wallet_address
-    ) {
-
-      console.error(
-        "❌ Backend did not return a verified wallet address:",
-        data.user
-      );
-
-
-      msg.innerText =
-        "Administrator wallet address could not be verified.";
-
-      return;
-
-    }
-
-
-    /* -----------------------------------------------------
        SAVE ADMIN JWT
     ----------------------------------------------------- */
 
@@ -570,10 +451,7 @@ async function loginWithPi() {
           data.user.status,
 
         admin_level:
-          data.user.admin_level,
-
-        wallet_address:
-          data.user.pi_wallet_address
+          data.user.admin_level
       }
     );
 
@@ -606,34 +484,8 @@ async function loginWithPi() {
     );
 
 
-    /*
-      Give a more useful message when the user
-      rejects the wallet permission.
-    */
-
-    const errorText =
-      String(
-        error?.message ||
-        error ||
-        ""
-      ).toLowerCase();
-
-
-    if (
-      errorText.includes("wallet") ||
-      errorText.includes("permission") ||
-      errorText.includes("scope")
-    ) {
-
-      msg.innerText =
-        "Wallet permission is required for Administrator Login. Please allow it and try again.";
-
-    } else {
-
-      msg.innerText =
-        "Pi administrator authentication failed.";
-
-    }
+    msg.innerText =
+      "Pi administrator authentication failed.";
 
   } finally {
 
