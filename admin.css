@@ -63,7 +63,7 @@ body {
    SECTIONS
 ========================= */
 .section {
-  display: none;
+(adminTay: none;
 }
 
 .section.active {
@@ -316,4 +316,65 @@ button:disabled {
     height: 150px;
   }
 
+}
+
+
+.withdrawal-summary {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(200px, 1fr)
+    );
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.withdrawal-card {
+    padding: 20px;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+.withdrawal-card span {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.withdrawal-card strong {
+    font-size: 22px;
+}
+
+.withdrawal-panel {
+    background: #ffffff;
+    padding: 20px;
+    margin-top: 20px;
+    border-radius: 12px;
+}
+
+.admin-share-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.admin-share-row input {
+    width: 100px;
+    padding: 10px;
+}
+
+.withdrawal-history-row {
+    display: grid;
+    gap: 8px;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.withdrawal-history-row button {
+    width: fit-content;
+    padding: 8px 15px;
 }

@@ -376,13 +376,27 @@ function showSection(sectionId) {
 
   }
 
-}
 
-if (
-  sectionId === "vendors"
-) {
+  if (
+    sectionId === "vendors"
+  ) {
 
-  loadVendors();
+    loadVendors();
+
+  }
+
+} 
+
+if (section === "withdrawals") {
+
+    if (
+        typeof initializeWithdrawals ===
+        "function"
+    ) {
+
+        initializeWithdrawals();
+
+    }
 
 }
 

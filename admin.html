@@ -70,6 +70,14 @@
     👑 Administrators
   </button>
 
+  <button
+    type="button"
+    onclick="showSection('withdrawals')"
+    id="withdrawalsMenuButton"
+>
+    <i class="fas fa-money-bill-transfer"></i>
+    Withdrawals
+  </button>
 
   <button
     onclick="logout()"
@@ -686,6 +694,170 @@
 
 </div>
 
+  <section
+    id="withdrawals"
+    class="dashboard-section"
+    style="display:none;"
+>
+
+    <div class="section-header">
+
+        <div>
+
+            <h2>
+                <i class="fas fa-money-bill-transfer"></i>
+                Withdrawals
+            </h2>
+
+            <p>
+                Manage marketplace platform earnings
+                and distribute them according to admin shares.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         WITHDRAWAL SUMMARY
+    ====================================================== -->
+
+    <div class="withdrawal-summary">
+
+        <div class="withdrawal-card">
+
+            <span>
+                Available Platform Earnings
+            </span>
+
+            <strong id="availablePlatformEarnings">
+                0 Pi
+            </strong>
+
+        </div>
+
+
+        <div class="withdrawal-card">
+
+            <span>
+                Total Withdrawn
+            </span>
+
+            <strong id="totalWithdrawn">
+                0 Pi
+            </strong>
+
+        </div>
+
+
+        <div class="withdrawal-card">
+
+            <span>
+                Admin Share
+            </span>
+
+            <strong id="totalAdminPercentage">
+                0%
+            </strong>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         ADMIN SHARES
+    ====================================================== -->
+
+    <div class="withdrawal-panel">
+
+        <h3>
+            Admin Distribution
+        </h3>
+
+        <p>
+            The total percentage must equal 100%.
+        </p>
+
+
+        <div id="adminSharesContainer">
+
+            <p>
+                Loading administrators...
+            </p>
+
+        </div>
+
+
+        <button
+            type="button"
+            onclick="saveAdminShares()"
+        >
+            Save Admin Shares
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         WITHDRAW
+    ====================================================== -->
+
+    <div class="withdrawal-panel">
+
+        <h3>
+            Platform Withdrawal
+        </h3>
+
+        <p>
+            Only the Super Admin can perform this operation.
+        </p>
+
+
+        <input
+            type="text"
+            id="withdrawalDescription"
+            placeholder="Withdrawal description"
+        />
+
+
+        <button
+            type="button"
+            onclick="startPlatformWithdrawal()"
+            id="startWithdrawalButton"
+        >
+            <i class="fas fa-money-bill-transfer"></i>
+
+            Withdraw Platform Earnings
+
+        </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         HISTORY
+    ====================================================== -->
+
+    <div class="withdrawal-panel">
+
+        <h3>
+            Withdrawal History
+        </h3>
+
+
+        <div id="withdrawalHistory">
+
+            <p>
+                Loading withdrawal history...
+            </p>
+
+        </div>
+
+    </div>
+
+  </section>
 
 
 <!-- =====================================================
@@ -693,6 +865,7 @@
 ===================================================== -->
 
 <script src="admin.js"></script>
+<script src="withdrawals.js"></script>
 
 </body>
 </html>
