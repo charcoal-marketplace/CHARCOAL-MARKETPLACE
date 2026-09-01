@@ -343,6 +343,92 @@ document.addEventListener(
    SECTION NAVIGATION
 ========================================================= */
 
+/*
+ * Opens / closes the compact three-dot admin menu.
+ */
+
+function toggleAdminMenu() {
+
+  const menu =
+    document.getElementById(
+      "adminMenu"
+    );
+
+  const toggle =
+    document.getElementById(
+      "adminMenuToggle"
+    );
+
+
+  if (!menu) {
+
+    return;
+
+  }
+
+
+  const isOpen =
+    menu.classList.toggle(
+      "open"
+    );
+
+
+  if (toggle) {
+
+    toggle.setAttribute(
+      "aria-expanded",
+      isOpen
+        ? "true"
+        : "false"
+    );
+
+  }
+
+}
+
+
+/*
+ * Closes the admin menu.
+ */
+
+function closeAdminMenu() {
+
+  const menu =
+    document.getElementById(
+      "adminMenu"
+    );
+
+  const toggle =
+    document.getElementById(
+      "adminMenuToggle"
+    );
+
+
+  if (menu) {
+
+    menu.classList.remove(
+      "open"
+    );
+
+  }
+
+
+  if (toggle) {
+
+    toggle.setAttribute(
+      "aria-expanded",
+      "false"
+    );
+
+  }
+
+}
+
+
+/*
+ * Shows exactly one dashboard section.
+ */
+
 function showSection(sectionId) {
 
   const sections =
@@ -368,37 +454,178 @@ function showSection(sectionId) {
     );
 
 
-  if (target) {
+  if (!target) {
 
-    target.classList.add(
-      "active"
+    console.warn(
+      "Admin section not found:",
+      sectionId
+    );
+
+    closeAdminMenu();
+
+    return;
+
+  }
+
+
+  target.classList.add(
+    "active"
+  );
+
+
+  /*
+   * Highlight selected menu item.
+   */
+
+  const menuItems =
+    document.querySelectorAll(
+      ".admin-menu-item"
+    );
+
+
+  menuItems.forEach(
+    item => {
+
+      item.classList.remove(
+        "active-menu-item"
+      );
+
+    }
+  );
+
+
+  const selectedItem =
+    document.querySelector(
+      `.admin-menu-item[onclick="showSection('${sectionId}')"]`
+    );
+
+
+  if (selectedItem) {
+
+    selectedItem.classList.add(
+      "active-menu-item"
     );
 
   }
 
 
+  /*
+   * Close dropdown after selection.
+   */
+
+  closeAdminMenu();
+
+
+  /*
+   * Load section-specific data
+   * when its page is opened.
+   */
+
   if (
-    sectionId === "vendors"
+    sectionId === "vendors" &&
+    typeof loadVendors ===
+      "function"
   ) {
 
     loadVendors();
 
   }
 
-} 
 
-if (section === "withdrawals") {
+  if (
+    sectionId === "payouts" &&
+    typeof loadPendingPayouts ===
+      "function"
+  ) {
 
-    if (
-        typeof initializeWithdrawals ===
-        "function"
-    ) {
+    loadPendingPayouts();
 
-        initializeWithdrawals();
+  }
+
+
+  if (
+    sectionId === "invitations" &&
+    typeof loadAdminInvitations ===
+      "function"
+  ) {
+
+    loadAdminInvitations();
+
+  }
+
+
+  if (
+    sectionId === "withdrawals" &&
+    typeof initializeWithdrawals ===
+      "function"
+  ) {
+
+    initializeWithdrawals();
+
+  }
+
+}
+
+
+/*
+ * Close menu when tapping outside it.
+ */
+
+document.addEventListener(
+  "click",
+  event => {
+
+    const menu =
+      document.getElementById(
+        "adminMenu"
+      );
+
+    const toggle =
+      document.getElementById(
+        "adminMenuToggle"
+      );
+
+
+    if (!menu || !toggle) {
+
+      return;
 
     }
 
-}
+
+    if (
+      !menu.contains(event.target) &&
+      !toggle.contains(event.target)
+    ) {
+
+      closeAdminMenu();
+
+    }
+
+  }
+);
+
+
+/*
+ * Close menu with Escape.
+ */
+
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key ===
+      "Escape"
+    ) {
+
+      closeAdminMenu();
+
+    }
+
+  }
+);
+
 
 /* =========================================================
    DASHBOARD

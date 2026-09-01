@@ -12,78 +12,153 @@
 <body>
 
 <!-- =====================================================
-     SIDEBAR
+     COMPACT ADMIN TOP BAR
 ===================================================== -->
 
-<div class="sidebar">
+<header class="admin-topbar">
 
-  <h2>🔥 Admin Panel</h2>
+  <div class="admin-brand">
+    <span class="admin-brand-icon">🔥</span>
 
-  <button onclick="showSection('dashboard')">
-    📊 Dashboard
-  </button>
-
-  <button onclick="showSection('products')">
-    📦 Products
-  </button>
-
-  <button onclick="showSection('orders')">
-    🛒 Orders
-  </button>
-
-  <button onclick="showSection('vendors')">
-    🏪 Vendors
-  </button>
-
-  <button onclick="showSection('approvals')">
-    ✅ Approvals
-  </button>
-
-  <button onclick="showSection('roles')">
-    👤 Role Manager
-  </button>
-
-  <button onclick="showSection('payouts')">
-  💰 Vendor Payouts
-</button>
-
-  <!-- SUPER ADMIN AREA -->
+    <div>
+      <strong>Admin Panel</strong>
+      <small>Charcoal Marketplace</small>
+    </div>
+  </div>
 
   <button
-    id="invitationMenuBtn"
-    onclick="showSection('invitations')"
+    type="button"
+    class="admin-menu-toggle"
+    id="adminMenuToggle"
+    aria-label="Open admin menu"
+    aria-expanded="false"
+    onclick="toggleAdminMenu()"
   >
-    ✉️ Invitations
+    ⋮
   </button>
 
-  <button
-    id="adminRequestsMenuBtn"
-    onclick="showSection('adminRequests')"
-  >
-    📨 Admin Requests
-  </button>
+</header>
+
+
+<!-- =====================================================
+     COMPACT THREE-DOT ADMIN MENU
+===================================================== -->
+
+<div
+  class="admin-menu"
+  id="adminMenu"
+>
 
   <button
-    id="administratorsMenuBtn"
-    onclick="showSection('administrators')"
+    type="button"
+    class="admin-menu-item active-menu-item"
+    onclick="showSection('dashboard')"
   >
-    👑 Administrators
+    <span>📊</span>
+    <span>Dashboard</span>
   </button>
 
   <button
     type="button"
-    onclick="showSection('withdrawals')"
-    id="withdrawalsMenuButton"
->
-    <i class="fas fa-money-bill-transfer"></i>
-    Withdrawals
+    class="admin-menu-item"
+    onclick="showSection('products')"
+  >
+    <span>📦</span>
+    <span>Products</span>
   </button>
 
   <button
-    onclick="logout()"
-    style="margin-top:20px; background:red;"
+    type="button"
+    class="admin-menu-item"
+    onclick="showSection('orders')"
   >
-    🚪 Logout
+    <span>🛒</span>
+    <span>Orders</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    onclick="showSection('vendors')"
+  >
+    <span>🏪</span>
+    <span>Vendors</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    onclick="showSection('approvals')"
+  >
+    <span>✅</span>
+    <span>Approvals</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    onclick="showSection('roles')"
+  >
+    <span>👤</span>
+    <span>Role Manager</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    onclick="showSection('payouts')"
+  >
+    <span>💰</span>
+    <span>Vendor Payouts</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    id="invitationMenuBtn"
+    onclick="showSection('invitations')"
+  >
+    <span>✉️</span>
+    <span>Invitations</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    id="adminRequestsMenuBtn"
+    onclick="showSection('adminRequests')"
+  >
+    <span>📨</span>
+    <span>Admin Requests</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    id="administratorsMenuBtn"
+    onclick="showSection('administrators')"
+  >
+    <span>👑</span>
+    <span>Administrators</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    id="withdrawalsMenuButton"
+    onclick="showSection('withdrawals')"
+  >
+    <span>💳</span>
+    <span>Withdrawals</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item admin-logout-item"
+    onclick="logout()"
+  >
+    <span>🚪</span>
+    <span>Logout</span>
   </button>
 
 </div>
@@ -92,6 +167,8 @@
 <!-- =====================================================
      MAIN
 ===================================================== -->
+
+
 
 <div class="main">
 
@@ -692,12 +769,9 @@
 </section>
 
 
-</div>
-
-  <section
+<section
     id="withdrawals"
-    class="dashboard-section"
-    style="display:none;"
+    class="section"
 >
 
     <div class="section-header">
@@ -858,6 +932,11 @@
     </div>
 
   </section>
+
+
+</div>
+
+  
 
 
 <!-- =====================================================
