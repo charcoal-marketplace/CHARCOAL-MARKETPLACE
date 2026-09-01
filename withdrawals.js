@@ -1,21 +1,31 @@
 /* =========================================================
-   WITHDRAWALS
+   CHARCOAL MARKETPLACE
+   ADMIN PLATFORM WITHDRAWALS
+========================================================= */
+
+
+/* =========================================================
+   RAILWAY API
 ========================================================= */
 
 const WITHDRAWAL_API =
-    "/api/withdrawals";
+    "https://charcoal-marketplace-main-production.up.railway.app/api/withdrawals";
 
 
 /* =========================================================
    AUTH HEADERS
+   IMPORTANT:
+   Admin dashboard uses adminToken.
 ========================================================= */
 
 function withdrawalHeaders() {
 
     const token =
+        localStorage.getItem("adminToken") ||
         localStorage.getItem("token") ||
         localStorage.getItem("authToken") ||
         localStorage.getItem("jwt");
+
 
     return {
 
@@ -26,7 +36,7 @@ function withdrawalHeaders() {
             ? {
                 Authorization:
                     `Bearer ${token}`
-              }
+            }
             : {})
 
     };
@@ -46,6 +56,9 @@ async function loadWithdrawalSummary() {
             await fetch(
                 `${WITHDRAWAL_API}/summary`,
                 {
+                    method:
+                        "GET",
+
                     headers:
                         withdrawalHeaders()
                 }
@@ -53,41 +66,68 @@ async function loadWithdrawalSummary() {
 
 
         const data =
-            await response.json();
+            await response.json()
+                .catch(
+                    () => ({})
+                );
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Unable to load withdrawal summary"
+                `Unable to load withdrawal summary (${response.status})`
             );
 
         }
 
 
-        document.getElementById(
-            "availablePlatformEarnings"
-        ).textContent =
-            `${Number(
-                data.available_pi || 0
-            ).toFixed(8)} Pi`;
+        const available =
+            document.getElementById(
+                "availablePlatformEarnings"
+            );
 
 
-        document.getElementById(
-            "totalWithdrawn"
-        ).textContent =
-            `${Number(
-                data.withdrawn_pi || 0
-            ).toFixed(8)} Pi`;
+        const withdrawn =
+            document.getElementById(
+                "totalWithdrawn"
+            );
 
 
-        document.getElementById(
-            "totalAdminPercentage"
-        ).textContent =
-            `${Number(
-                data.total_admin_percentage || 0
-            ).toFixed(2)}%`;
+        const percentage =
+            document.getElementById(
+                "totalAdminPercentage"
+            );
+
+
+        if (available) {
+
+            available.textContent =
+                `${Number(
+                    data.available_pi || 0
+                ).toFixed(8)} Pi`;
+
+        }
+
+
+        if (withdrawn) {
+
+            withdrawn.textContent =
+                `${Number(
+                    data.withdrawn_pi || 0
+                ).toFixed(8)} Pi`;
+
+        }
+
+
+        if (percentage) {
+
+            percentage.textContent =
+                `${Number(
+                    data.total_admin_percentage || 0
+                ).toFixed(2)}%`;
+
+        }
 
 
         renderAdminShares(
@@ -102,6 +142,25 @@ async function loadWithdrawalSummary() {
             error
         );
 
+
+        const container =
+            document.getElementById(
+                "adminSharesContainer"
+            );
+
+
+        if (container) {
+
+            container.innerHTML =
+                `
+                <p class="withdrawal-error">
+                    ${escapeWithdrawalHtml(
+                        error.message
+                    )}
+                </p>
+                `;
+
+        }
 
         alert(
             error.message
@@ -151,14 +210,22 @@ function renderAdminShares(
         admins.map(
             admin => {
 
+                const share =
+                    Number(
+                        admin.admin_share_percent || 0
+                    );
+
+
                 return `
 
                 <div
                     class="admin-share-row"
-                    data-user-id="${admin.id}"
+                    data-user-id="${Number(
+                        admin.id
+                    )}"
                 >
 
-                    <div>
+                    <div class="admin-share-info">
 
                         <strong>
                             ${escapeWithdrawalHtml(
@@ -172,8 +239,6 @@ function renderAdminShares(
                             )}
                         </small>
 
-                        <br>
-
                         <small>
                             Pi:
                             ${escapeWithdrawalHtml(
@@ -186,21 +251,25 @@ function renderAdminShares(
                     </div>
 
 
-                    <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value="${Number(
-                            admin.admin_share_percent || 0
-                        )}"
-                        class="admin-share-input"
-                        data-user-id="${admin.id}"
-                    />
+                    <div class="admin-share-input-wrapper">
 
-                    <span>
-                        %
-                    </span>
+                        <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value="${share}"
+                            class="admin-share-input"
+                            data-user-id="${Number(
+                                admin.id
+                            )}"
+                        />
+
+                        <span>
+                            %
+                        </span>
+
+                    </div>
 
                 </div>
 
@@ -224,11 +293,46 @@ async function saveAdminShares() {
         );
 
 
+    if (!inputs.length) {
+
+        alert(
+            "No administrator share fields were found."
+        );
+
+        return;
+
+    }
+
+
     const shares = [];
+
+
+    let invalid =
+        false;
 
 
     inputs.forEach(
         input => {
+
+            const value =
+                Number(
+                    input.value
+                );
+
+
+            if (
+                !Number.isFinite(value) ||
+                value < 0 ||
+                value > 100
+            ) {
+
+                invalid =
+                    true;
+
+                return;
+
+            }
+
 
             shares.push({
 
@@ -238,14 +342,23 @@ async function saveAdminShares() {
                     ),
 
                 admin_share_percent:
-                    Number(
-                        input.value
-                    )
+                    value
 
             });
 
         }
     );
+
+
+    if (invalid) {
+
+        alert(
+            "Each administrator percentage must be between 0% and 100%."
+        );
+
+        return;
+
+    }
 
 
     const total =
@@ -300,20 +413,24 @@ async function saveAdminShares() {
 
 
         const data =
-            await response.json();
+            await response.json()
+                .catch(
+                    () => ({})
+                );
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Unable to save admin percentages"
+                `Unable to save admin percentages (${response.status})`
             );
 
         }
 
 
         alert(
+            data.message ||
             "Admin percentages saved successfully."
         );
 
@@ -339,7 +456,7 @@ async function saveAdminShares() {
 
 
 /* =========================================================
-   START WITHDRAWAL
+   START PLATFORM WITHDRAWAL
 ========================================================= */
 
 async function startPlatformWithdrawal() {
@@ -350,14 +467,21 @@ async function startPlatformWithdrawal() {
         );
 
 
-    const description =
+    const descriptionElement =
         document.getElementById(
             "withdrawalDescription"
-        )?.value.trim();
+        );
+
+
+    const description =
+        descriptionElement
+            ?.value
+            ?.trim() ||
+        "Marketplace platform earnings withdrawal";
 
 
     if (!confirm(
-        "Are you sure you want to withdraw and distribute all currently available platform earnings?"
+        "Are you sure you want to withdraw and distribute ALL currently available platform earnings?"
     )) {
 
         return;
@@ -392,9 +516,7 @@ async function startPlatformWithdrawal() {
                     body:
                         JSON.stringify({
 
-                            description:
-                                description ||
-                                "Marketplace platform earnings withdrawal"
+                            description
 
                         })
 
@@ -403,14 +525,17 @@ async function startPlatformWithdrawal() {
 
 
         const data =
-            await response.json();
+            await response.json()
+                .catch(
+                    () => ({})
+                );
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Withdrawal failed"
+                `Withdrawal failed (${response.status})`
             );
 
         }
@@ -426,6 +551,16 @@ async function startPlatformWithdrawal() {
             data.message ||
             "Withdrawal processing completed."
         );
+
+
+        if (
+            descriptionElement
+        ) {
+
+            descriptionElement.value =
+                "";
+
+        }
 
 
         await loadWithdrawalSummary();
@@ -466,7 +601,7 @@ async function startPlatformWithdrawal() {
 
 
 /* =========================================================
-   LOAD HISTORY
+   LOAD WITHDRAWAL HISTORY
 ========================================================= */
 
 async function loadWithdrawalHistory() {
@@ -490,21 +625,29 @@ async function loadWithdrawalHistory() {
             await fetch(
                 `${WITHDRAWAL_API}/history`,
                 {
+
+                    method:
+                        "GET",
+
                     headers:
                         withdrawalHeaders()
+
                 }
             );
 
 
         const data =
-            await response.json();
+            await response.json()
+                .catch(
+                    () => ({})
+                );
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Unable to load withdrawal history"
+                `Unable to load withdrawal history (${response.status})`
             );
 
         }
@@ -533,6 +676,13 @@ async function loadWithdrawalHistory() {
             withdrawals.map(
                 withdrawal => {
 
+                    const status =
+                        String(
+                            withdrawal.status ||
+                            ""
+                        );
+
+
                     return `
 
                     <div
@@ -540,7 +690,9 @@ async function loadWithdrawalHistory() {
                     >
 
                         <strong>
-                            Withdrawal #${withdrawal.id}
+                            Withdrawal #${Number(
+                                withdrawal.id
+                            )}
                         </strong>
 
                         <span>
@@ -552,22 +704,27 @@ async function loadWithdrawalHistory() {
 
                         <span>
                             ${escapeWithdrawalHtml(
-                                withdrawal.status
+                                status
                             )}
                         </span>
 
                         <small>
                             ${escapeWithdrawalHtml(
-                                withdrawal.description || ""
+                                withdrawal.description ||
+                                ""
                             )}
                         </small>
 
                         <small>
-                            ${withdrawal.created_at || ""}
+                            ${escapeWithdrawalHtml(
+                                withdrawal.created_at ||
+                                ""
+                            )}
                         </small>
 
+
                         ${
-                            withdrawal.status !==
+                            status !==
                             "completed"
 
                             ?
@@ -575,7 +732,9 @@ async function loadWithdrawalHistory() {
                             `
                             <button
                                 type="button"
-                                onclick="retryWithdrawal(${withdrawal.id})"
+                                onclick="retryWithdrawal(${Number(
+                                    withdrawal.id
+                                )})"
                             >
                                 Retry
                             </button>
@@ -604,7 +763,7 @@ async function loadWithdrawalHistory() {
 
         container.innerHTML =
             `
-            <p>
+            <p class="withdrawal-error">
                 ${escapeWithdrawalHtml(
                     error.message
                 )}
@@ -617,12 +776,19 @@ async function loadWithdrawalHistory() {
 
 
 /* =========================================================
-   RETRY
+   RETRY WITHDRAWAL
 ========================================================= */
 
 async function retryWithdrawal(
     withdrawalId
 ) {
+
+    if (!withdrawalId) {
+
+        return;
+
+    }
+
 
     if (!confirm(
         `Retry failed payments for Withdrawal #${withdrawalId}?`
@@ -637,7 +803,9 @@ async function retryWithdrawal(
 
         const response =
             await fetch(
-                `${WITHDRAWAL_API}/${withdrawalId}/retry`,
+                `${WITHDRAWAL_API}/${Number(
+                    withdrawalId
+                )}/retry`,
                 {
 
                     method:
@@ -651,21 +819,25 @@ async function retryWithdrawal(
 
 
         const data =
-            await response.json();
+            await response.json()
+                .catch(
+                    () => ({})
+                );
 
 
         if (!response.ok) {
 
             throw new Error(
                 data.message ||
-                "Retry failed"
+                `Retry failed (${response.status})`
             );
 
         }
 
 
         alert(
-            data.message
+            data.message ||
+            "Withdrawal retry completed."
         );
 
 
@@ -692,10 +864,15 @@ async function retryWithdrawal(
 
 
 /* =========================================================
-   LOAD WHEN WITHDRAWAL SECTION OPENS
+   INITIALIZE WITHDRAWALS
 ========================================================= */
 
 function initializeWithdrawals() {
+
+    console.log(
+        "Initializing platform withdrawals..."
+    );
+
 
     loadWithdrawalSummary();
 
