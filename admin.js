@@ -1818,7 +1818,7 @@ async function loadPendingPayouts() {
 
     const response =
       await fetch(
-        `${API}/admin/earnings/pending`,
+        `${API}/a2u/earnings/pending`,
         {
           method: "GET",
           headers: getHeaders()
@@ -1901,7 +1901,7 @@ async function loadPendingPayouts() {
           </p>
 
           <p>
-            Wallet Address:
+            Pi Wallet:
             <br>
             <small>
               ${escapeHTML(
@@ -2045,7 +2045,7 @@ async function releaseVendorPayout(
 
     const response =
       await fetch(
-        `${API}/admin/earnings/${earningId}/release`,
+        `${API}/a2u/earnings/${earningId}/release`,
         {
           method: "POST",
           headers: getHeaders()

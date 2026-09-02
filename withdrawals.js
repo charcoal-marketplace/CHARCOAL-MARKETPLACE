@@ -9,7 +9,7 @@
 ========================================================= */
 
 const WITHDRAWAL_API =
-    "https://charcoal-marketplace-main-production.up.railway.app/api/withdrawals";
+    "https://charcoal-marketplace-main-production.up.railway.app/api/a2u/withdrawals";
 
 
 /* =========================================================
