@@ -555,6 +555,17 @@ function showSection(sectionId) {
 
 
   if (
+  sectionId === "administrators" &&
+  typeof loadAdministrators ===
+    "function"
+) {
+
+  loadAdministrators();
+
+  }
+  
+
+  if (
   sectionId === "adminRequests" &&
   typeof loadAdminRequests ===
     "function"
@@ -2140,6 +2151,725 @@ async function releaseVendorPayout(
   }
 
 }
+
+
+/* =========================================================
+   LOAD ADMINISTRATORS
+   SUPER ADMIN ONLY
+
+   GET /api/admin/administrators
+========================================================= */
+
+async function loadAdministrators() {
+
+  const container =
+    document.getElementById(
+      "administratorsList"
+    );
+
+
+  if (!container) {
+
+    console.warn(
+      "Administrators list container not found."
+    );
+
+    return;
+
+  }
+
+
+  if (!isSuperAdmin()) {
+
+    container.innerHTML =
+      `
+      <p>
+        Only the Super Admin can view administrators.
+      </p>
+      `;
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    `
+    <p>
+      Loading administrators...
+    </p>
+    `;
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/administrators`,
+        {
+          method: "GET",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    /* -----------------------------------------------------
+       AUTHORIZATION ERROR
+    ----------------------------------------------------- */
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    /* -----------------------------------------------------
+       SERVER ERROR
+    ----------------------------------------------------- */
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load administrators."
+      );
+
+    }
+
+
+    /* -----------------------------------------------------
+       RESPONSE VALIDATION
+    ----------------------------------------------------- */
+
+    if (
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Invalid administrator response."
+      );
+
+    }
+
+
+    const administrators =
+      Array.isArray(
+        data.administrators
+      )
+        ? data.administrators
+        : [];
+
+
+    /* -----------------------------------------------------
+       NO ADMINISTRATORS
+    ----------------------------------------------------- */
+
+    if (
+      administrators.length === 0
+    ) {
+
+      container.innerHTML =
+        `
+        <div class="card">
+
+          <h3>
+            👑 No Administrators Found
+          </h3>
+
+          <p>
+            There are currently no approved
+            administrator accounts.
+          </p>
+
+        </div>
+        `;
+
+      return;
+
+    }
+
+
+    /* -----------------------------------------------------
+       DISPLAY ADMINISTRATORS
+    ----------------------------------------------------- */
+
+    container.innerHTML =
+      administrators
+        .map(
+          admin => {
+
+            const id =
+              Number(admin.id);
+
+
+            const name =
+              admin.name ||
+              admin.pi_username ||
+              "Administrator";
+
+
+            const username =
+              admin.pi_username ||
+              "N/A";
+
+
+            const email =
+              admin.email ||
+              "N/A";
+
+
+            const piUid =
+              admin.pi_uid ||
+              "N/A";
+
+
+            const level =
+              admin.admin_level ||
+              "admin";
+
+
+            const status =
+              admin.status ||
+              "unknown";
+
+
+            const createdAt =
+              admin.created_at
+                ? new Date(
+                    admin.created_at
+                  ).toLocaleString()
+                : "N/A";
+
+
+            const isSelf =
+              Number(
+                window.currentAdmin?.id
+              ) === id;
+
+
+            const isSuperAdminAccount =
+              level ===
+              "super_admin";
+
+
+            return `
+              <div
+                class="card"
+                style="
+                  margin-bottom:15px;
+                "
+              >
+
+                <h3>
+                  👑
+                  ${escapeHTML(
+                    name
+                  )}
+                </h3>
+
+
+                <p>
+                  <strong>
+                    Pi Username:
+                  </strong>
+
+                  ${escapeHTML(
+                    username
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Pi UID:
+                  </strong>
+
+                  <small>
+                    ${escapeHTML(
+                      piUid
+                    )}
+                  </small>
+                </p>
+
+
+                <p>
+                  <strong>
+                    Email:
+                  </strong>
+
+                  ${escapeHTML(
+                    email
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Role:
+                  </strong>
+
+                  ${escapeHTML(
+                    admin.role ||
+                    "admin"
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Admin Level:
+                  </strong>
+
+                  ${escapeHTML(
+                    level
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Status:
+                  </strong>
+
+                  ${escapeHTML(
+                    status
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Added:
+                  </strong>
+
+                  ${escapeHTML(
+                    createdAt
+                  )}
+                </p>
+
+
+                ${
+                  isSelf
+                    ? `
+                      <p>
+                        ⭐
+                        <strong>
+                          This is your Super Admin account.
+                        </strong>
+                      </p>
+                    `
+                    : ""
+                }
+
+
+                ${
+                  isSuperAdminAccount
+                    ? ""
+                    : `
+                      <div
+                        style="
+                          display:flex;
+                          gap:10px;
+                          flex-wrap:wrap;
+                          margin-top:15px;
+                        "
+                      >
+
+                        <button
+                          type="button"
+                          onclick="changeAdminLevel(${id}, 'admin')"
+                        >
+                          👤 Make Admin
+                        </button>
+
+
+                        <button
+                          type="button"
+                          onclick="changeAdminLevel(${id}, 'moderator')"
+                        >
+                          🛡️ Make Moderator
+                        </button>
+
+
+                        ${
+                          !isSelf
+                            ? `
+                              <button
+                                type="button"
+                                onclick="removeAdministrator(${id})"
+                              >
+                                ❌ Remove Administrator
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    `
+                }
+
+              </div>
+            `;
+
+          }
+        )
+        .join("");
+
+
+  } catch (error) {
+
+    console.error(
+      "Load administrators error:",
+      error
+    );
+
+
+    container.innerHTML =
+      `
+      <div class="card">
+
+        <p>
+          ❌
+          ${escapeHTML(
+            error.message ||
+            "Unable to load administrators."
+          )}
+        </p>
+
+
+        <button
+          type="button"
+          onclick="loadAdministrators()"
+        >
+          🔄 Try Again
+        </button>
+
+      </div>
+      `;
+
+  }
+
+}
+
+
+/* =========================================================
+   CHANGE ADMINISTRATOR LEVEL
+========================================================= */
+
+async function changeAdminLevel(
+  adminId,
+  adminLevel
+) {
+
+  if (!isSuperAdmin()) {
+
+    alert(
+      "Only the Super Admin can change administrator levels."
+    );
+
+    return;
+
+  }
+
+
+  const id =
+    Number(adminId);
+
+
+  if (
+    !Number.isInteger(id)
+  ) {
+
+    alert(
+      "Invalid administrator ID."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    adminLevel !== "admin" &&
+    adminLevel !== "moderator"
+  ) {
+
+    alert(
+      "Invalid administrator level."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    id ===
+    Number(
+      window.currentAdmin?.id
+    )
+  ) {
+
+    alert(
+      "You cannot change your own administrator level."
+    );
+
+    return;
+
+  }
+
+
+  const confirmed =
+    confirm(
+      `Change this administrator to ${adminLevel}?`
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/administrators/${id}/level`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+
+          body:
+            JSON.stringify({
+              admin_level:
+                adminLevel
+            })
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Failed to change administrator level."
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      `Administrator changed to ${adminLevel}.`
+    );
+
+
+    await loadAdministrators();
+
+
+  } catch (error) {
+
+    console.error(
+      "Change administrator level error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Unable to change administrator level."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   REMOVE ADMINISTRATOR
+========================================================= */
+
+async function removeAdministrator(
+  adminId
+) {
+
+  if (!isSuperAdmin()) {
+
+    alert(
+      "Only the Super Admin can remove administrators."
+    );
+
+    return;
+
+  }
+
+
+  const id =
+    Number(adminId);
+
+
+  if (
+    !Number.isInteger(id)
+  ) {
+
+    alert(
+      "Invalid administrator ID."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    id ===
+    Number(
+      window.currentAdmin?.id
+    )
+  ) {
+
+    alert(
+      "You cannot remove yourself."
+    );
+
+    return;
+
+  }
+
+
+  const confirmed =
+    confirm(
+      "Are you sure you want to remove this administrator?"
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/administrators/${id}/remove`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Failed to remove administrator."
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Administrator removed successfully."
+    );
+
+
+    await loadAdministrators();
+
+
+  } catch (error) {
+
+    console.error(
+      "Remove administrator error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Unable to remove administrator."
+    );
+
+  }
+
+}
+
 
 /* =========================================================
    ADMIN INVITATION CENTER
