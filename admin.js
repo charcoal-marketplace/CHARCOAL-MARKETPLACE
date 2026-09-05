@@ -555,6 +555,17 @@ function showSection(sectionId) {
 
 
   if (
+  sectionId === "adminRequests" &&
+  typeof loadAdminRequests ===
+    "function"
+) {
+
+  loadAdminRequests();
+
+  }
+  
+
+  if (
     sectionId === "withdrawals" &&
     typeof initializeWithdrawals ===
       "function"
@@ -2381,8 +2392,579 @@ async function sendAdminInvitation(event) {
 
 
 /* =========================================================
+   LOAD ADMIN REQUESTS
+   SUPER ADMIN ONLY
+
+   GET /api/admin/admin-requests
+========================================================= */
+
+async function loadAdminRequests() {
+
+  const container =
+    document.getElementById(
+      "adminRequestsList"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  if (!isSuperAdmin()) {
+
+    container.innerHTML =
+      "<p>Only the Super Admin can view administrator requests.</p>";
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    "<p>Loading administrator requests...</p>";
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/admin-requests`,
+        {
+          method: "GET",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Unable to load administrator requests."
+      );
+
+    }
+
+
+    const requests =
+      Array.isArray(data.requests)
+        ? data.requests
+        : [];
+
+
+    if (!requests.length) {
+
+      container.innerHTML =
+        `
+        <div class="card">
+
+          <h3>
+            📭 No Pending Administrator Requests
+          </h3>
+
+          <p>
+            There are currently no pending
+            administrator access requests.
+          </p>
+
+        </div>
+        `;
+
+      return;
+
+    }
+
+
+    container.innerHTML =
+      requests
+        .map(
+          request => {
+
+            const requestId =
+              Number(request.id);
+
+
+            const username =
+              request.pi_username ||
+              "Unknown Pi User";
+
+
+            const requesterName =
+              request.requester_name ||
+              username ||
+              "Unknown User";
+
+
+            const email =
+              request.requester_email ||
+              "N/A";
+
+
+            const piUid =
+              request.pi_uid ||
+              "N/A";
+
+
+            const adminLevel =
+              request.admin_level ||
+              "admin";
+
+
+            const createdAt =
+              request.created_at ||
+              "N/A";
+
+
+            return `
+              <div class="card">
+
+                <h3>
+                  👤
+                  ${escapeHTML(
+                    requesterName
+                  )}
+                </h3>
+
+
+                <p>
+                  <strong>
+                    Pi Username:
+                  </strong>
+
+                  ${escapeHTML(
+                    username
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Pi UID:
+                  </strong>
+
+                  <small>
+                    ${escapeHTML(
+                      piUid
+                    )}
+                  </small>
+                </p>
+
+
+                <p>
+                  <strong>
+                    Email:
+                  </strong>
+
+                  ${escapeHTML(
+                    email
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Requested Access:
+                  </strong>
+
+                  ${escapeHTML(
+                    adminLevel
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Requested:
+                  </strong>
+
+                  ${escapeHTML(
+                    createdAt
+                  )}
+                </p>
+
+
+                <p>
+                  <strong>
+                    Status:
+                  </strong>
+
+                  <span>
+                    🟡 Pending
+                  </span>
+                </p>
+
+
+                <div
+                  style="
+                    display:flex;
+                    gap:10px;
+                    flex-wrap:wrap;
+                    margin-top:15px;
+                  "
+                >
+
+                  <button
+                    type="button"
+                    onclick="approveAdminRequest(${requestId})"
+                  >
+                    ✅ Approve
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onclick="rejectAdminRequest(${requestId})"
+                  >
+                    ❌ Reject
+                  </button>
+
+                </div>
+
+              </div>
+            `;
+
+          }
+        )
+        .join("");
+
+
+  } catch (error) {
+
+    console.error(
+      "Load admin requests error:",
+      error
+    );
+
+
+    container.innerHTML =
+      `
+      <div class="card">
+
+        <p>
+          ❌
+          ${escapeHTML(
+            error.message ||
+            "Unable to load administrator requests."
+          )}
+        </p>
+
+        <button
+          type="button"
+          onclick="loadAdminRequests()"
+        >
+          🔄 Try Again
+        </button>
+
+      </div>
+      `;
+
+  }
+
+}
+
+
+/* =========================================================
+   APPROVE ADMIN REQUEST
+
+   POST /api/admin/admin-requests/:id/approve
+========================================================= */
+
+async function approveAdminRequest(
+  requestId
+) {
+
+  if (!isSuperAdmin()) {
+
+    alert(
+      "Only the Super Admin can approve administrator requests."
+    );
+
+    return;
+
+  }
+
+
+  const id =
+    Number(requestId);
+
+
+  if (!Number.isInteger(id)) {
+
+    alert(
+      "Invalid administrator request ID."
+    );
+
+    return;
+
+  }
+
+
+  const confirmed =
+    confirm(
+      "Approve this administrator request?"
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/admin-requests/${id}/approve`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Unable to approve administrator request."
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Administrator request approved successfully."
+    );
+
+
+    await loadAdminRequests();
+
+
+    if (
+      typeof loadAdministrators ===
+      "function"
+    ) {
+
+      loadAdministrators();
+
+    }
+
+
+    if (
+      typeof loadDashboard ===
+      "function"
+    ) {
+
+      loadDashboard();
+
+    }
+
+
+  } catch (error) {
+
+    console.error(
+      "Approve administrator request error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Failed to approve administrator request."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   REJECT ADMIN REQUEST
+
+   POST /api/admin/admin-requests/:id/reject
+========================================================= */
+
+async function rejectAdminRequest(
+  requestId
+) {
+
+  if (!isSuperAdmin()) {
+
+    alert(
+      "Only the Super Admin can reject administrator requests."
+    );
+
+    return;
+
+  }
+
+
+  const id =
+    Number(requestId);
+
+
+  if (!Number.isInteger(id)) {
+
+    alert(
+      "Invalid administrator request ID."
+    );
+
+    return;
+
+  }
+
+
+  const confirmed =
+    confirm(
+      "Reject this administrator request?"
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/admin-requests/${id}/reject`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response
+        .json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Super Admin access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        "Unable to reject administrator request."
+      );
+
+    }
+
+
+    alert(
+      data.message ||
+      "Administrator request rejected."
+    );
+
+
+    await loadAdminRequests();
+
+
+  } catch (error) {
+
+    console.error(
+      "Reject administrator request error:",
+      error
+    );
+
+
+    alert(
+      error.message ||
+      "Failed to reject administrator request."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
    LOAD ADMIN INVITATIONS
 ========================================================= */
+
+
 
 async function loadAdminInvitations() {
 
