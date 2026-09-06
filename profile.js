@@ -689,75 +689,48 @@ function updateVendorStatus(user) {
   }
 
 
-  /* =========================
-     BUYER
-  ========================= */
+  /* =======================================================
+     DETERMINE VENDOR STATUS
+     
+     IMPORTANT:
+     A user can be BOTH:
+     
+       role = admin
+       vendor_status = approved
+     
+     Therefore we must use vendor_status to determine
+     vendor permission instead of checking only role.
+  ======================================================= */
 
-  if (
-    !user.role ||
-    user.role === "buyer"
-  ) {
-
-    if (user.vendor_status === "pending") {
-      vendorTitle.textContent =
-        "Vendor Application";
-
-      vendorDescription.textContent =
-        "Your application is awaiting approval";
-    } else if (user.vendor_status === "rejected") {
-      vendorTitle.textContent =
-        "Become a Vendor";
-
-      vendorDescription.textContent =
-        "Your previous application was rejected. You can apply again.";
-    } else {
-      vendorTitle.textContent =
-        "Become a Vendor";
-
-      vendorDescription.textContent =
-        "Start selling charcoal on the marketplace";
-    }
-
-    earningsMenu.classList.add(
-      "hidden"
-    );
-
-    return;
-
-  }
+  const vendorStatus =
+    String(
+      user.vendor_status || ""
+    ).toLowerCase();
 
 
-  /* =========================
-     PENDING VENDOR
-  ========================= */
-
-  if (
-    user.role === "vendor" &&
-    user.status === "pending"
-  ) {
-
-    vendorTitle.textContent =
-      "Vendor Application";
-
-    vendorDescription.textContent =
-      "Your application is awaiting approval";
-
-    earningsMenu.classList.add(
-      "hidden"
-    );
-
-    return;
-
-  }
+  const accountStatus =
+    String(
+      user.status || ""
+    ).toLowerCase();
 
 
-  /* =========================
+  /* =======================================================
      APPROVED VENDOR
-  ========================= */
+     
+     This includes:
+     
+       role = vendor
+       vendor_status = approved
+     
+     AND:
+     
+       role = admin
+       vendor_status = approved
+  ======================================================= */
 
   if (
-    user.role === "vendor" &&
-    user.status === "approved"
+    vendorStatus === "approved" &&
+    accountStatus === "approved"
   ) {
 
     vendorTitle.textContent =
@@ -765,6 +738,9 @@ function updateVendorStatus(user) {
 
     vendorDescription.textContent =
       "Manage your products and orders";
+
+
+    /* Show My Earnings */
 
     earningsMenu.classList.remove(
       "hidden"
@@ -774,28 +750,81 @@ function updateVendorStatus(user) {
 
   }
 
+
+  /* =======================================================
+     PENDING VENDOR APPLICATION
+     
+     This also works for an admin who has submitted
+     a vendor application but has not yet been approved.
+  ======================================================= */
+
+  if (
+    vendorStatus === "pending"
+  ) {
+
+    vendorTitle.textContent =
+      "Vendor Application";
+
+    vendorDescription.textContent =
+      "Your application is awaiting approval";
+
+
+    earningsMenu.classList.add(
+      "hidden"
+    );
+
+    return;
+
+  }
+
+
+  /* =======================================================
+     REJECTED VENDOR APPLICATION
+  ======================================================= */
+
+  if (
+    vendorStatus === "rejected"
+  ) {
+
+    vendorTitle.textContent =
+      "Become a Vendor";
+
+    vendorDescription.textContent =
+      "Your previous application was rejected. You can apply again.";
+
+
+    earningsMenu.classList.add(
+      "hidden"
+    );
+
+    return;
+
+  }
+
+
+  /* =======================================================
+     NORMAL BUYER / NON-VENDOR
+  ======================================================= */
+
+  vendorTitle.textContent =
+    "Become a Vendor";
+
+  vendorDescription.textContent =
+    "Start selling charcoal on the marketplace";
+
+
+  earningsMenu.classList.add(
+    "hidden"
+  );
+
 }
+
 
 
 /* =========================================================
    PROFILE NAVIGATION
 ========================================================= */
 
-/*
-   IMPORTANT:
-
-   Navigation is controlled by HOME.JS.
-
-   Therefore we do NOT put:
-   - active navigation logic
-   - navigation CSS
-   - navigation state
-
-   inside this file.
-
-   profile.js only provides the functions
-   required by the Profile page.
-*/
 
 
 function goProfile() {
@@ -881,6 +910,7 @@ function openSupport() {
 }
 
 
+
 /* =========================================================
    VENDOR
 ========================================================= */
@@ -893,14 +923,9 @@ function openVendorAccount() {
     );
 
 
-  /*
-    Not logged in
-    ----------------
-    Send user to vendor page.
-
-    The vendor page can then show:
-    Become a Vendor / Login
-  */
+  /* =======================================================
+     NOT LOGGED IN
+  ======================================================= */
 
   if (!token) {
 
@@ -934,20 +959,41 @@ function openVendorAccount() {
       JSON.parse(savedUser);
 
 
+    /* =====================================================
+       APPROVED VENDOR
+       
+       IMPORTANT:
+       This includes BOTH:
+       
+       role = vendor
+       vendor_status = approved
+       
+       AND:
+       
+       role = admin
+       vendor_status = approved
+    ===================================================== */
+
     if (
-      user.role === "vendor" &&
+      user.vendor_status === "approved" &&
       user.status === "approved"
     ) {
 
       window.location.href =
-        "vendor-dashboard.html";
-
-    } else {
-
-      window.location.href =
         "vendor.html";
 
+      return;
+
     }
+
+
+    /* =====================================================
+       NOT YET APPROVED
+    ===================================================== */
+
+    window.location.href =
+      "vendor.html";
+
 
   } catch (error) {
 
@@ -962,6 +1008,7 @@ function openVendorAccount() {
   }
 
 }
+
 
 
 /* =========================================================
