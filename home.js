@@ -202,17 +202,49 @@ function renderProducts(products) {
     }).join("");
 }
 
-
 /* =========================================================
-   CART SYSTEM
+   ADD TO CART
+   Confirmation required before adding a product
 ========================================================= */
 
 function addToCart(id, name, price) {
+
+  /*
+   * Ask the buyer for confirmation
+   * before adding the product.
+   */
+
+  const confirmed =
+    confirm(
+      `Do you want to add "${name}" to your cart?`
+    );
+
+
+  /*
+   * Buyer selected Cancel
+   * ----------------------
+   * Do nothing.
+   */
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  /*
+   * Buyer selected OK
+   * -----------------
+   * Continue with the existing
+   * cart logic.
+   */
 
   const existing =
     cart.find(
       item => item.id === id
     );
+
 
   if (existing) {
 
@@ -221,17 +253,42 @@ function addToCart(id, name, price) {
   } else {
 
     cart.push({
+
       id,
+
       name,
+
       price,
+
       qty: 1
+
     });
 
   }
 
+
+  /*
+   * Save updated cart.
+   */
+
   saveCart();
 
+
+  /*
+   * Update cart counter/UI.
+   */
+
   updateCartUI();
+
+
+  /*
+   * Optional success message.
+   */
+
+  alert(
+    `"${name}" has been added to your cart.`
+  );
+
 }
 
 
