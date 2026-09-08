@@ -326,14 +326,16 @@ document.addEventListener(
 
 
     loadDashboard();
-
-    loadPendingProducts();
-
-    loadPendingVendors();
     
     loadVendors();
     
     loadPendingPayouts();
+
+    loadPendingProducts();
+
+    loadAdminProducts();
+
+    loadPendingVendors();
 
   }
 );
@@ -812,6 +814,793 @@ function logout() {
   window.location.replace(
     "admin-login.html"
   );
+
+}
+
+
+/* =========================================================
+   PRODUCT MANAGEMENT
+========================================================= */
+
+let adminProductsCache = [];
+
+
+/* =========================================================
+   LOAD ALL PRODUCTS
+========================================================= */
+
+async function loadAdminProducts() {
+
+  const container =
+    document.getElementById(
+      "adminProducts"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  try {
+
+    container.innerHTML =
+      "<p>Loading marketplace products...</p>";
+
+
+    const response =
+      await fetch(
+        `${API}/admin/products`,
+        {
+          method: "GET",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load products"
+      );
+
+    }
+
+
+    if (
+      !data.success ||
+      !Array.isArray(
+        data.products
+      )
+    ) {
+
+      throw new Error(
+        "Invalid products response"
+      );
+
+    }
+
+
+    adminProductsCache =
+      data.products;
+
+
+    renderAdminProducts();
+
+
+  } catch (error) {
+
+    console.error(
+      "Admin products management error:",
+      error
+    );
+
+
+    container.innerHTML =
+      `
+      <p>
+        Unable to load marketplace products.
+      </p>
+      `;
+
+  }
+
+}
+
+
+/* =========================================================
+   RENDER PRODUCTS
+========================================================= */
+
+function renderAdminProducts() {
+
+  const container =
+    document.getElementById(
+      "adminProducts"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  const filter =
+    document.getElementById(
+      "adminProductFilter"
+    )?.value ||
+    "all";
+
+
+  let products =
+    [...adminProductsCache];
+
+
+  /* -------------------------------------------------------
+     FILTER
+  ------------------------------------------------------- */
+
+  if (
+    filter === "pending"
+  ) {
+
+    products =
+      products.filter(
+        p =>
+          p.status ===
+          "pending"
+      );
+
+  }
+
+
+  if (
+    filter === "approved"
+  ) {
+
+    products =
+      products.filter(
+        p =>
+          p.status ===
+          "approved"
+      );
+
+  }
+
+
+  if (
+    filter === "listed"
+  ) {
+
+    products =
+      products.filter(
+        p =>
+          p.status === "approved" &&
+          Boolean(p.is_active)
+      );
+
+  }
+
+
+  if (
+    filter === "delisted"
+  ) {
+
+    products =
+      products.filter(
+        p =>
+          !Boolean(p.is_active)
+      );
+
+  }
+
+
+  if (
+    filter === "rejected"
+  ) {
+
+    products =
+      products.filter(
+        p =>
+          p.status ===
+          "rejected"
+      );
+
+  }
+
+
+  if (
+    filter === "suspended"
+  ) {
+
+    products =
+      products.filter(
+        p =>
+          p.status ===
+          "suspended"
+      );
+
+  }
+
+
+  if (!products.length) {
+
+    container.innerHTML =
+      `
+      <div class="item">
+
+        <p>
+          No products found for this filter.
+        </p>
+
+      </div>
+      `;
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    products.map(
+      product => {
+
+        const active =
+          Boolean(
+            product.is_active
+          );
+
+
+        let listingStatus =
+          "Delisted";
+
+
+        if (
+          product.status ===
+          "approved" &&
+          active
+        ) {
+
+          listingStatus =
+            "Listed";
+
+        }
+
+
+        if (
+          product.status ===
+          "pending"
+        ) {
+
+          listingStatus =
+            "Awaiting approval";
+
+        }
+
+
+        if (
+          product.status ===
+          "rejected"
+        ) {
+
+          listingStatus =
+            "Rejected";
+
+        }
+
+
+        if (
+          product.status ===
+          "suspended"
+        ) {
+
+          listingStatus =
+            "Suspended";
+
+        }
+
+
+        return `
+
+          <div
+            class="admin-product-management-card"
+          >
+
+            <img
+              src="${getImageURL(
+                product.image
+              )}"
+              alt="${escapeHTML(
+                product.name
+              )}"
+            >
+
+
+            <div
+              class="admin-product-info"
+            >
+
+              <h3>
+                ${escapeHTML(
+                  product.name
+                )}
+              </h3>
+
+
+              <p>
+                <strong>
+                  Vendor:
+                </strong>
+
+                ${escapeHTML(
+                  product.vendor_name ||
+                  "Unknown"
+                )}
+              </p>
+
+
+              <p>
+                <strong>
+                  Pi Username:
+                </strong>
+
+                ${escapeHTML(
+                  product.vendor_pi_username ||
+                  "N/A"
+                )}
+              </p>
+
+
+              <p>
+                <strong>
+                  Location:
+                </strong>
+
+                ${escapeHTML(
+                  product.location ||
+                  "N/A"
+                )}
+              </p>
+
+
+              <p>
+                <strong>
+                  Price:
+                </strong>
+
+                ${Number(
+                  product.price_pi ||
+                  0
+                ).toFixed(2)}
+                Pi
+              </p>
+
+
+              <p>
+                <strong>
+                  Stock:
+                </strong>
+
+                ${Number(
+                  product.stock ||
+                  0
+                )}
+              </p>
+
+
+              <p>
+                <strong>
+                  Approval:
+                </strong>
+
+                ${escapeHTML(
+                  product.status
+                )}
+              </p>
+
+
+              <p>
+                <strong>
+                  Listing:
+                </strong>
+
+                ${listingStatus}
+              </p>
+
+
+              <div
+                class="admin-product-actions"
+              >
+
+                ${
+                  product.status ===
+                  "pending"
+                    ? `
+
+                      <button
+                        class="approve-btn"
+                        onclick="approveProduct(${product.id})"
+                      >
+                        Approve
+                      </button>
+
+                      <button
+                        class="reject-btn"
+                        onclick="rejectProduct(${product.id})"
+                      >
+                        Reject
+                      </button>
+
+                    `
+                    : ""
+                }
+
+
+                ${
+                  product.status ===
+                    "approved" &&
+                  active
+                    ? `
+
+                      <button
+                        class="delist-btn"
+                        onclick="adminDelistProduct(${product.id})"
+                      >
+                        🚫 Delist
+                      </button>
+
+                    `
+                    : ""
+                }
+
+
+                ${
+                  product.status ===
+                    "approved" &&
+                  !active
+                    ? `
+
+                      <button
+                        class="relist-btn"
+                        onclick="adminRelistProduct(${product.id})"
+                      >
+                        ✅ Relist
+                      </button>
+
+                    `
+                    : ""
+                }
+
+
+                <button
+                  class="delete-btn"
+                  onclick="adminDeleteProduct(${product.id})"
+                >
+                  🗑 Delete
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        `;
+
+      }
+    ).join("");
+
+}
+
+
+/* =========================================================
+   ADMIN DELIST
+========================================================= */
+
+async function adminDelistProduct(id) {
+
+  const confirmed =
+    confirm(
+      "Delist this product?\n\nIt will remain in the database but will no longer appear in the marketplace."
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/products/${id}/delist`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Failed to delist product."
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      "Product delisted successfully."
+    );
+
+
+    await loadAdminProducts();
+
+
+  } catch (error) {
+
+    console.error(
+      "Admin delist product error:",
+      error
+    );
+
+
+    alert(
+      "Unable to delist product."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   ADMIN RELIST
+========================================================= */
+
+async function adminRelistProduct(id) {
+
+  const confirmed =
+    confirm(
+      "Relist this product on the marketplace?"
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/products/${id}/relist`,
+        {
+          method: "POST",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Failed to relist product."
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      "Product relisted successfully."
+    );
+
+
+    await loadAdminProducts();
+
+
+  } catch (error) {
+
+    console.error(
+      "Admin relist product error:",
+      error
+    );
+
+
+    alert(
+      "Unable to relist product."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   ADMIN DELETE
+========================================================= */
+
+async function adminDeleteProduct(id) {
+
+  const confirmed =
+    confirm(
+      "⚠️ PERMANENT DELETE\n\nAre you sure you want to permanently delete this product?\n\nThis cannot be undone."
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  const secondConfirmation =
+    confirm(
+      "Please confirm again: permanently delete this product?"
+    );
+
+
+  if (!secondConfirmation) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/admin/products/${id}`,
+        {
+          method: "DELETE",
+          headers: getHeaders()
+        }
+      );
+
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Administrator access denied."
+      );
+
+      redirectToLogin();
+
+      return;
+
+    }
+
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Failed to delete product."
+      );
+
+      return;
+
+    }
+
+
+    alert(
+      "Product deleted permanently."
+    );
+
+
+    await loadAdminProducts();
+
+    loadDashboard();
+
+
+  } catch (error) {
+
+    console.error(
+      "Admin delete product error:",
+      error
+    );
+
+
+    alert(
+      "Unable to delete product."
+    );
+
+  }
 
 }
 

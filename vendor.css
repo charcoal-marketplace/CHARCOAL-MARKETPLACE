@@ -207,3 +207,85 @@ hr {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   VENDOR PRODUCT MANAGEMENT
+========================================================= */
+
+.vendor-product-card {
+  margin-bottom: 20px;
+}
+
+
+.vendor-product-card img {
+  width: 100%;
+  max-width: 280px;
+  height: 200px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 12px;
+  background: #f5f5f5;
+  border-radius: 10px;
+}
+
+
+.vendor-product-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+
+
+.vendor-delist-btn {
+  background: #f39c12;
+  color: white;
+  border: none;
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+
+.vendor-relist-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+
+.vendor-delete-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+
+.vendor-delist-btn:hover {
+  opacity: 0.9;
+}
+
+
+.vendor-relist-btn:hover {
+  opacity: 0.9;
+}
+
+
+.vendor-delete-btn:hover {
+  opacity: 0.9;
+}
+
+
+@media screen and (max-width: 600px) {
+
+  .vendor-product-actions button {
+    flex: 1;
+  }
+
+}

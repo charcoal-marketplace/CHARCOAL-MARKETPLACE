@@ -234,9 +234,8 @@
 </section>
 
 
-
 <!-- =====================================================
-     PRODUCTS
+     PRODUCTS MANAGEMENT
 ===================================================== -->
 
 <section
@@ -244,54 +243,74 @@
   class="section"
 >
 
-  <h1>Products</h1>
+  <h1>Products Management</h1>
 
-  <div id="adminProducts"></div>
+  <p>
+    Manage all marketplace products, including
+    approval status, listing visibility and deletion.
+  </p>
 
 
-  <h3>Add New Product</h3>
+  <div
+    class="product-management-toolbar"
+  >
 
-  <form id="adminProductForm">
-
-    <input
-      id="pname"
-      placeholder="Product name"
-      required
+    <button
+      type="button"
+      onclick="loadAdminProducts()"
     >
-
-    <input
-      id="pprice"
-      placeholder="Price in Pi"
-      required
-    >
-
-    <input
-      id="plocation"
-      placeholder="Location"
-      required
-    >
-
-    <input
-      id="pstock"
-      placeholder="Stock"
-      required
-    >
-
-    <input
-      id="pimage"
-      type="file"
-      required
-    >
-
-    <button type="submit">
-      Upload Product
+      🔄 Refresh
     </button>
 
-  </form>
+    <select
+      id="adminProductFilter"
+      onchange="renderAdminProducts()"
+    >
 
-</section>
+      <option value="all">
+        All Products
+      </option>
+
+      <option value="pending">
+        Pending
+      </option>
+
+      <option value="approved">
+        Approved
+      </option>
+
+      <option value="listed">
+        Listed
+      </option>
+
+      <option value="delisted">
+        Delisted
+      </option>
+
+      <option value="rejected">
+        Rejected
+      </option>
+
+      <option value="suspended">
+        Suspended
+      </option>
+
+    </select>
+
+  </div>
 
 
+  <div
+    id="adminProducts"
+  >
+
+    <p>
+      Loading products...
+    </p>
+
+  </div>
+
+</section>{
 
 <!-- =====================================================
      ORDERS
