@@ -1,5 +1,379 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>My Orders | Charcoal Marketplace</title><link rel="stylesheet" href="account.css"></head>
-<body data-page="orders"><main class="page"><h1>My Orders</h1><div id="content"><div class="card">Loading...</div></div><div class="card"><button onclick="accountLogout()">Logout</button></div></main>
-<script src="account.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Orders | Charcoal Marketplace</title>
+<link rel="stylesheet" href="account.css">
+</head>
+
+<body>
+<main class="page">
+
+  <h1>My Orders</h1>
+
+  <div
+    id="orderMessage"
+    class="card"
+    style="display:none;"
+  ></div>
+
+  <div id="ordersContent">
+    <div class="card">Loading orders...</div>
+  </div>
+
+  <div class="card">
+    <a
+      class="action"
+      href="support.html"
+      style="display:block;text-align:center;"
+    >
+      💬 Contact Admin Support
+    </a>
+  </div>
+
+  <div class="card">
+    <button onclick="logoutBuyer()">Logout</button>
+  </div>
+
+</main>
+
+<script>
+const API =
+  "https://charcoal-marketplace-main-production.up.railway.app/api";
+
+const token =
+  localStorage.getItem("token");
+
+if (!token) {
+  window.location.href = "profile.html";
+}
+
+function headers() {
+  return {
+    Authorization:
+      "Bearer " + token
+  };
+}
+
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function showMessage(message) {
+  const box =
+    document.getElementById("orderMessage");
+
+  box.textContent = message;
+  box.style.display = "block";
+}
+
+async function loadOrders() {
+
+  const container =
+    document.getElementById("ordersContent");
+
+  try {
+
+    const response =
+      await fetch(
+        API + "/orders/my",
+        {
+          headers: headers()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => []);
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+      logoutBuyer();
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Failed to load orders"
+      );
+    }
+
+    if (
+      !Array.isArray(data) ||
+      !data.length
+    ) {
+      container.innerHTML =
+        '<div class="card">You have no orders yet.</div>';
+      return;
+    }
+
+    const grouped = {};
+
+    data.forEach(item => {
+
+      const id =
+        Number(item.id);
+
+      if (!grouped[id]) {
+        grouped[id] = {
+          ...item,
+          items: []
+        };
+      }
+
+      grouped[id].items.push(item);
+
+    });
+
+    container.innerHTML =
+      Object.values(grouped)
+        .map(order => {
+
+          const canRequestRefund =
+            ["paid", "processing", "shipped"]
+              .includes(
+                String(order.status)
+              ) &&
+            !order.buyer_confirmed_at &&
+            ["none", "cancelled", "failed"]
+              .includes(
+                String(
+                  order.refund_status ||
+                  "none"
+                )
+              );
+
+          const waitingVendor =
+            order.refund_status ===
+            "pending";
+
+          return `
+
+            <div
+              class="card"
+              style="margin-bottom:15px;"
+            >
+
+              <h3>
+                Order #${order.id}
+              </h3>
+
+              <p>
+                <strong>Total:</strong>
+                ${Number(
+                  order.total_pi || 0
+                ).toFixed(8)}
+                Pi
+              </p>
+
+              <p>
+                <strong>Order:</strong>
+                ${escapeHTML(
+                  order.status || ""
+                )}
+              </p>
+
+              <p>
+                <strong>Delivery:</strong>
+                ${escapeHTML(
+                  order.delivery_status || ""
+                )}
+              </p>
+
+              <p>
+                <strong>Refund:</strong>
+                ${escapeHTML(
+                  order.refund_status ||
+                  "none"
+                )}
+              </p>
+
+              <p>
+                <strong>Products:</strong>
+                ${
+                  order.items
+                    .map(
+                      item =>
+                        `${escapeHTML(
+                          item.product_name ||
+                          "Product"
+                        )} × ${Number(
+                          item.quantity || 0
+                        )}`
+                    )
+                    .join(", ")
+                }
+              </p>
+
+              ${
+                canRequestRefund
+                  ? `
+                    <button
+                      type="button"
+                      onclick="requestRefund(${order.id})"
+                      style="background:#dc3545;color:#fff;"
+                    >
+                      💸 Request Refund
+                    </button>
+                  `
+                  : ""
+              }
+
+              ${
+                waitingVendor
+                  ? `
+                    <p>
+                      ⏳ Refund request sent.
+                      Waiting for the vendor to cancel the order.
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                order.status === "cancelled" &&
+                order.refund_status === "pending"
+                  ? `
+                    <p>
+                      ⏳ Vendor cancelled the order.
+                      Waiting for Admin to release your refund.
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                order.refund_status === "completed"
+                  ? `
+                    <p>
+                      ✅ Refund completed.
+                      ${order.refund_txid
+                        ? `Transaction: ${escapeHTML(
+                            order.refund_txid
+                          )}`
+                        : ""}
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                order.refund_status === "failed"
+                  ? `
+                    <p>
+                      ⚠️ Refund processing failed.
+                      Please contact Admin Support.
+                    </p>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          `;
+
+        })
+        .join("");
+
+  } catch (error) {
+
+    console.error(
+      "Buyer orders error:",
+      error
+    );
+
+    container.innerHTML =
+      `<div class="card">Unable to load orders: ${escapeHTML(
+        error.message ||
+        "Server error"
+      )}</div>`;
+
+  }
+
+}
+
+async function requestRefund(orderId) {
+
+  const reason =
+    prompt(
+      "Why are you requesting a refund?",
+      "I did not receive the product."
+    );
+
+  if (reason === null) return;
+
+  try {
+
+    const response =
+      await fetch(
+        API + "/refunds/request",
+        {
+          method: "POST",
+          headers: {
+            ...headers(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              order_id:
+                orderId,
+              reason
+            })
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Refund request failed"
+      );
+    }
+
+    showMessage(
+      data.message ||
+      "Refund request submitted."
+    );
+
+    await loadOrders();
+
+  } catch (error) {
+
+    showMessage(
+      error.message ||
+      "Unable to request refund."
+    );
+
+  }
+
+}
+
+function logoutBuyer() {
+
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
+  window.location.href =
+    "profile.html";
+}
+
+document.addEventListener(
+  "DOMContentLoaded",
+  loadOrders
+);
+</script>
+
+</body>
+</html>

@@ -912,8 +912,334 @@ document.addEventListener(
     ) {
 
       loadMyProducts();
+      loadVendorOrders();
 
     }
 
   }
 );
+
+/* =========================================================
+   VENDOR ORDERS
+========================================================= */
+
+async function loadVendorOrders() {
+
+  const container =
+    document.getElementById(
+      "vendorOrders"
+    );
+
+  if (!container) return;
+
+  container.innerHTML =
+    "<p>Loading orders...</p>";
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/orders/vendor`,
+        {
+          headers:
+            headers()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => []);
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      logout();
+      return;
+
+    }
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load orders"
+      );
+
+    }
+
+    if (
+      !Array.isArray(data) ||
+      !data.length
+    ) {
+
+      container.innerHTML =
+        "<p>No customer orders yet.</p>";
+
+      return;
+
+    }
+
+    /*
+     * The backend returns one row per order item.
+     * Group by order ID for a cleaner vendor dashboard.
+     */
+    const grouped = {};
+
+    data.forEach(
+      item => {
+
+        const id =
+          Number(item.id);
+
+        if (!grouped[id]) {
+
+          grouped[id] = {
+            ...item,
+            items: []
+          };
+
+        }
+
+        grouped[id].items.push(
+          item
+        );
+
+      }
+    );
+
+    container.innerHTML =
+      Object.values(grouped)
+        .map(
+          order => {
+
+            const canCancel =
+              ["paid", "processing", "shipped"]
+                .includes(
+                  String(
+                    order.status
+                  )
+                ) &&
+              !order.buyer_confirmed_at &&
+              ["pending", "failed"]
+                .includes(
+                  String(
+                    order.refund_status ||
+                    "none"
+                  )
+                );
+
+            return `
+
+              <div
+                class="card"
+                style="margin:15px 0;"
+              >
+
+                <h4>
+                  Order #${order.id}
+                </h4>
+
+                <p>
+                  <strong>Buyer:</strong>
+                  ${escapeHTML(
+                    order.buyer_name ||
+                    order.pi_username ||
+                    "Buyer"
+                  )}
+                </p>
+
+                <p>
+                  <strong>Total:</strong>
+                  ${Number(
+                    order.total_pi ||
+                    0
+                  ).toFixed(8)}
+                  Pi
+                </p>
+
+                <p>
+                  <strong>Order status:</strong>
+                  ${escapeHTML(
+                    order.status ||
+                    ""
+                  )}
+                </p>
+
+                <p>
+                  <strong>Delivery:</strong>
+                  ${escapeHTML(
+                    order.delivery_status ||
+                    ""
+                  )}
+                </p>
+
+                <p>
+                  <strong>Refund:</strong>
+                  ${escapeHTML(
+                    order.refund_status ||
+                    "none"
+                  )}
+                </p>
+
+                <p>
+                  <strong>Products:</strong>
+                  ${
+                    order.items
+                      .map(
+                        item =>
+                          `${escapeHTML(
+                            item.name ||
+                            item.product_name ||
+                            "Product"
+                          )} × ${Number(
+                            item.quantity ||
+                            0
+                          )}`
+                      )
+                      .join(", ")
+                  }
+                </p>
+
+                ${
+                  canCancel
+                    ? `
+                      <button
+                        type="button"
+                        class="vendor-delete-btn"
+                        onclick="vendorCancelOrder(${order.id})"
+                      >
+                        ❌ Cancel Order / Start Refund
+                      </button>
+                    `
+                    : (
+                      order.refund_status ===
+                      "pending"
+                        ? `
+                          <p>
+                            ⏳ Refund requested. Waiting for
+                            vendor cancellation / Admin processing.
+                          </p>
+                        `
+                        : ""
+                    )
+                }
+
+              </div>
+
+            `;
+
+          }
+        ).join("");
+
+  } catch (error) {
+
+    console.error(
+      "Vendor orders error:",
+      error
+    );
+
+    container.innerHTML =
+      `<p>Unable to load orders: ${escapeHTML(
+        error.message ||
+        "Server error"
+      )}</p>`;
+
+  }
+
+}
+
+
+async function vendorCancelOrder(
+  orderId
+) {
+
+  const reason =
+    prompt(
+      "Why are you cancelling this order?",
+      "Buyer did not receive the product; refund requested."
+    );
+
+  if (reason === null) return;
+
+  if (
+    !confirm(
+      `Cancel order #${orderId} and make it eligible for Admin refund processing?`
+    )
+  ) {
+    return;
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/refunds/vendor-cancel/${orderId}`,
+        {
+          method:
+            "POST",
+          headers: {
+            ...headers(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              reason
+            })
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      alert(
+        data.message ||
+        "Vendor access denied."
+      );
+
+      logout();
+      return;
+
+    }
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Unable to cancel order."
+      );
+
+      return;
+
+    }
+
+    alert(
+      data.message ||
+      "Order cancelled. Refund is now waiting for Admin."
+    );
+
+    await loadVendorOrders();
+
+  } catch (error) {
+
+    console.error(
+      "Vendor cancel order error:",
+      error
+    );
+
+    alert(
+      error.message ||
+      "Unable to cancel order."
+    );
+
+  }
+
+}

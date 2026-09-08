@@ -588,6 +588,28 @@ function showSection(sectionId) {
 
   }
 
+
+  if (
+    sectionId === "refunds" &&
+    typeof loadAdminRefunds ===
+      "function"
+  ) {
+
+    loadAdminRefunds();
+
+  }
+
+
+  if (
+    sectionId === "support" &&
+    typeof loadAdminSupport ===
+      "function"
+  ) {
+
+    loadAdminSupport();
+
+  }
+
 }
 
 
@@ -4902,5 +4924,741 @@ function escapeHTML(value) {
       "'",
       "&#039;"
     );
+
+}
+
+/* =========================================================
+   REFUND MANAGEMENT
+========================================================= */
+
+let adminRefunds = [];
+
+async function loadAdminRefunds() {
+
+  const container =
+    document.getElementById("adminRefunds");
+
+  if (!container) return;
+
+  container.innerHTML =
+    "<p>Loading refund cases...</p>";
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/refunds/admin/pending`,
+        {
+          headers:
+            getHeaders()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      redirectToLogin();
+      return;
+
+    }
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load refunds"
+      );
+
+    }
+
+    adminRefunds =
+      Array.isArray(data.refunds)
+        ? data.refunds
+        : [];
+
+    if (!adminRefunds.length) {
+
+      container.innerHTML =
+        "<p>No pending refunds.</p>";
+
+      return;
+
+    }
+
+    container.innerHTML =
+      adminRefunds.map(
+        refund => {
+
+          const status =
+            escapeHTML(
+              refund.refund_status ||
+              "pending"
+            );
+
+          const reason =
+            escapeHTML(
+              refund.refund_reason ||
+              "No reason provided"
+            );
+
+          return `
+
+            <div
+              class="item admin-refund-card"
+              style="margin:15px 0;padding:16px;border-radius:12px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);"
+            >
+
+              <h3>
+                Order #${refund.id}
+              </h3>
+
+              <p>
+                <strong>Buyer:</strong>
+                ${escapeHTML(
+                  refund.buyer_name ||
+                  "Unknown"
+                )}
+                ${
+                  refund.buyer_pi_username
+                    ? ` (@${escapeHTML(
+                        refund.buyer_pi_username
+                      )})`
+                    : ""
+                }
+              </p>
+
+              <p>
+                <strong>Vendor:</strong>
+                ${escapeHTML(
+                  refund.vendor_name ||
+                  "Multiple / Unknown"
+                )}
+              </p>
+
+              <p>
+                <strong>Amount:</strong>
+                ${Number(
+                  refund.total_pi || 0
+                ).toFixed(8)}
+                Pi
+              </p>
+
+              <p>
+                <strong>Order status:</strong>
+                ${escapeHTML(
+                  refund.status ||
+                  ""
+                )}
+              </p>
+
+              <p>
+                <strong>Refund status:</strong>
+                ${status}
+              </p>
+
+              <p>
+                <strong>Reason:</strong>
+                ${reason}
+              </p>
+
+              ${
+                refund.refund_error
+                  ? `
+                    <p>
+                      <strong>Previous error:</strong>
+                      ${escapeHTML(
+                        refund.refund_error
+                      )}
+                    </p>
+                  `
+                  : ""
+              }
+
+              <div
+                class="admin-product-actions"
+              >
+
+                <button
+                  type="button"
+                  class="approve-btn"
+                  onclick="processAdminRefund(${refund.id})"
+                >
+                  💸 Release Refund
+                </button>
+
+                <button
+                  type="button"
+                  class="reject-btn"
+                  onclick="cancelAdminRefund(${refund.id})"
+                >
+                  ✖ Cancel Case
+                </button>
+
+              </div>
+
+            </div>
+
+          `;
+
+        }
+      ).join("");
+
+  } catch (error) {
+
+    console.error(
+      "Admin refunds error:",
+      error
+    );
+
+    container.innerHTML =
+      `<p>Unable to load refunds: ${escapeHTML(
+        error.message ||
+        "Server error"
+      )}</p>`;
+
+  }
+
+}
+
+
+async function processAdminRefund(orderId) {
+
+  const confirmed =
+    confirm(
+      `Release the full refund for order #${orderId} to the buyer's Pi account?\n\nThe refund will be sent through Pi A2U.`
+    );
+
+  if (!confirmed) return;
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/refunds/admin/${orderId}/process`,
+        {
+          method:
+            "POST",
+          headers:
+            getHeaders()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      redirectToLogin();
+      return;
+
+    }
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Refund failed."
+      );
+
+      await loadAdminRefunds();
+      return;
+
+    }
+
+    alert(
+      data.message ||
+      "Refund processed successfully."
+    );
+
+    await loadAdminRefunds();
+
+  } catch (error) {
+
+    console.error(
+      "Process refund error:",
+      error
+    );
+
+    alert(
+      error.message ||
+      "Unable to process refund."
+    );
+
+  }
+
+}
+
+
+async function cancelAdminRefund(orderId) {
+
+  const reason =
+    prompt(
+      "Why are you cancelling this refund case?",
+      "Refund cancelled by Administrator."
+    );
+
+  if (reason === null) return;
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/refunds/admin/${orderId}/cancel`,
+        {
+          method:
+            "POST",
+          headers: {
+            ...getHeaders(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              reason
+            })
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      redirectToLogin();
+      return;
+
+    }
+
+    if (!response.ok) {
+
+      alert(
+        data.message ||
+        "Unable to cancel refund."
+      );
+
+      return;
+
+    }
+
+    alert(
+      "Refund case cancelled."
+    );
+
+    await loadAdminRefunds();
+
+  } catch (error) {
+
+    console.error(
+      "Cancel refund error:",
+      error
+    );
+
+    alert(
+      "Unable to cancel refund."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   ADMIN SUPPORT CHAT
+========================================================= */
+
+let adminSupportConversations = [];
+let activeAdminConversationId = null;
+
+async function loadAdminSupport() {
+
+  const list =
+    document.getElementById(
+      "adminSupportList"
+    );
+
+  if (!list) return;
+
+  list.innerHTML =
+    "<p>Loading support conversations...</p>";
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/support/conversations`,
+        {
+          headers:
+            getHeaders()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      redirectToLogin();
+      return;
+
+    }
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load conversations"
+      );
+
+    }
+
+    adminSupportConversations =
+      Array.isArray(data.conversations)
+        ? data.conversations
+        : [];
+
+    if (!adminSupportConversations.length) {
+
+      list.innerHTML =
+        "<p>No support conversations yet.</p>";
+
+      return;
+
+    }
+
+    list.innerHTML =
+      adminSupportConversations.map(
+        conversation => `
+
+          <button
+            type="button"
+            onclick="openAdminSupportConversation(${conversation.id})"
+            style="text-align:left;margin:8px 0;padding:14px;background:#fff;border:1px solid #ddd;border-radius:10px;"
+          >
+
+            <strong>
+              ${escapeHTML(
+                conversation.subject
+              )}
+            </strong>
+
+            <br>
+
+            <span>
+              ${escapeHTML(
+                conversation.user_name ||
+                "User"
+              )}
+              ·
+              ${escapeHTML(
+                conversation.user_type ||
+                ""
+              )}
+            </span>
+
+            <br>
+
+            <small>
+              Status:
+              ${escapeHTML(
+                conversation.status ||
+                ""
+              )}
+              ${
+                Number(
+                  conversation.unread_for_admin ||
+                  0
+                ) > 0
+                  ? ` · 🔴 ${
+                      Number(
+                        conversation.unread_for_admin
+                      )
+                    } unread`
+                  : ""
+              }
+            </small>
+
+            ${
+              conversation.order_id
+                ? `
+                  <br>
+                  <small>
+                    Order #${conversation.order_id}
+                  </small>
+                `
+                : ""
+            }
+
+          </button>
+
+        `
+      ).join("");
+
+  } catch (error) {
+
+    console.error(
+      "Admin support error:",
+      error
+    );
+
+    list.innerHTML =
+      `<p>Unable to load support chat: ${escapeHTML(
+        error.message ||
+        "Server error"
+      )}</p>`;
+
+  }
+
+}
+
+
+async function openAdminSupportConversation(
+  conversationId
+) {
+
+  activeAdminConversationId =
+    Number(conversationId);
+
+  const chat =
+    document.getElementById(
+      "adminSupportChat"
+    );
+
+  const messages =
+    document.getElementById(
+      "adminSupportMessages"
+    );
+
+  if (!chat || !messages) return;
+
+  chat.style.display =
+    "block";
+
+  messages.innerHTML =
+    "<p>Loading messages...</p>";
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/support/conversations/${conversationId}/messages`,
+        {
+          headers:
+            getHeaders()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to load messages"
+      );
+
+    }
+
+    messages.innerHTML =
+      `
+        <div
+          style="padding:12px;background:#f5f5f5;border-radius:10px;margin-bottom:12px;"
+        >
+          <strong>
+            ${escapeHTML(
+              data.conversation?.subject ||
+              "Support"
+            )}
+          </strong>
+
+          ${
+            data.conversation?.order_id
+              ? `<div>Order #${data.conversation.order_id}</div>`
+              : ""
+          }
+        </div>
+      ` +
+
+      (
+        Array.isArray(
+          data.messages
+        )
+          ? data.messages
+          : []
+      ).map(
+        message => `
+
+          <div
+            style="
+              margin:8px 0;
+              padding:10px;
+              border-radius:10px;
+              background:${
+                message.sender_type === "admin"
+                  ? "#e8f5e9"
+                  : "#f1f1f1"
+              };
+            "
+          >
+
+            <strong>
+              ${escapeHTML(
+                message.sender_name ||
+                message.sender_type
+              )}
+            </strong>
+
+            <small>
+              ·
+              ${escapeHTML(
+                message.sender_type
+              )}
+            </small>
+
+            <p>
+              ${escapeHTML(
+                message.message
+              )}
+            </p>
+
+            <small>
+              ${escapeHTML(
+                message.created_at ||
+                ""
+              )}
+            </small>
+
+          </div>
+
+        `
+      ).join("");
+
+    messages.scrollTop =
+      messages.scrollHeight;
+
+  } catch (error) {
+
+    console.error(
+      "Admin conversation error:",
+      error
+    );
+
+    messages.innerHTML =
+      `<p>Unable to load messages: ${escapeHTML(
+        error.message ||
+        "Server error"
+      )}</p>`;
+
+  }
+
+}
+
+
+async function sendAdminSupportMessage() {
+
+  if (!activeAdminConversationId) {
+
+    alert(
+      "Open a support conversation first."
+    );
+
+    return;
+
+  }
+
+  const input =
+    document.getElementById(
+      "adminSupportMessage"
+    );
+
+  const message =
+    String(
+      input?.value ||
+      ""
+    ).trim();
+
+  if (!message) {
+
+    alert(
+      "Write a message first."
+    );
+
+    return;
+
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/support/conversations/${activeAdminConversationId}/messages`,
+        {
+          method:
+            "POST",
+          headers: {
+            ...getHeaders(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              message
+            })
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.message ||
+        "Failed to send message"
+      );
+
+    }
+
+    input.value = "";
+
+    await openAdminSupportConversation(
+      activeAdminConversationId
+    );
+
+    await loadAdminSupport();
+
+  } catch (error) {
+
+    console.error(
+      "Admin send support error:",
+      error
+    );
+
+    alert(
+      error.message ||
+      "Unable to send message."
+    );
+
+  }
 
 }

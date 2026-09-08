@@ -79,6 +79,24 @@
   <button
     type="button"
     class="admin-menu-item"
+    onclick="showSection('refunds')"
+  >
+    <span>💸</span>
+    <span>Refunds</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
+    onclick="showSection('support')"
+  >
+    <span>💬</span>
+    <span>Support Chat</span>
+  </button>
+
+  <button
+    type="button"
+    class="admin-menu-item"
     onclick="showSection('vendors')"
   >
     <span>🏪</span>
@@ -324,6 +342,82 @@
   <h1>Orders</h1>
 
   <div id="adminOrders"></div>
+
+</section>
+
+<!-- =====================================================
+     REFUNDS
+===================================================== -->
+
+<section
+  id="refunds"
+  class="section"
+>
+
+  <h1>💸 Refund Management</h1>
+
+  <p>
+    Review buyer refund cases. A vendor must cancel the
+    order before an Admin can release the Pi refund.
+  </p>
+
+  <button type="button" onclick="loadAdminRefunds()">
+    🔄 Refresh Refunds
+  </button>
+
+  <div id="adminRefunds">
+    <p>Open Refunds to load cases.</p>
+  </div>
+
+</section>
+
+
+<!-- =====================================================
+     SUPPORT CHAT
+===================================================== -->
+
+<section
+  id="support"
+  class="section"
+>
+
+  <h1>💬 Support Chat</h1>
+
+  <p>
+    Chat directly with buyers and vendors about orders,
+    refunds, delivery and pending vendor payouts.
+  </p>
+
+  <button type="button" onclick="loadAdminSupport()">
+    🔄 Refresh Conversations
+  </button>
+
+  <div id="adminSupportList">
+    <p>Open Support Chat to load conversations.</p>
+  </div>
+
+  <div
+    id="adminSupportChat"
+    style="display:none;"
+  >
+    <div id="adminSupportMessages"></div>
+
+    <textarea
+      id="adminSupportMessage"
+      rows="4"
+      maxlength="5000"
+      placeholder="Write your reply..."
+      style="width:100%;box-sizing:border-box;margin-top:12px;padding:12px;border-radius:8px;border:1px solid #ccc;"
+    ></textarea>
+
+    <button
+      type="button"
+      onclick="sendAdminSupportMessage()"
+      style="margin-top:8px;"
+    >
+      Send Reply
+    </button>
+  </div>
 
 </section>
 

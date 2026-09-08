@@ -1,4 +1,648 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Support | Charcoal Marketplace</title><link rel="stylesheet" href="account.css"></head>
-<body><main class="page"><h1>Support</h1><div class="card"><p>For support, contact the marketplace administrator through the official support channel configured for your app.</p></div><a class="action" href="profile.html">Back to Profile</a></main></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support Chat | Charcoal Marketplace</title>
+<link rel="stylesheet" href="account.css">
+<style>
+  .support-list button {
+    width:100%;
+    text-align:left;
+    margin:7px 0;
+  }
+  .chat-box {
+    max-height:55vh;
+    overflow-y:auto;
+    padding:10px;
+    background:#f7f7f7;
+    border-radius:10px;
+  }
+  .chat-message {
+    padding:10px;
+    margin:8px 0;
+    border-radius:10px;
+    background:#fff;
+  }
+  .chat-message.mine {
+    background:#e8f5e9;
+  }
+  textarea {
+    width:100%;
+    box-sizing:border-box;
+    padding:12px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    margin-top:10px;
+  }
+</style>
+</head>
+
+<body>
+<main class="page">
+
+  <h1>💬 Admin Support</h1>
+
+  <div id="supportMessage" class="card" style="display:none;"></div>
+
+  <section id="newCase" class="card">
+    <h3>Open a Support Case</h3>
+
+    <input
+      id="subject"
+      type="text"
+      maxlength="255"
+      placeholder="Subject e.g. Refund for order"
+    >
+
+    <input
+      id="orderId"
+      type="number"
+      min="1"
+      placeholder="Order ID (optional)"
+    >
+
+    <textarea
+      id="firstMessage"
+      rows="4"
+      maxlength="5000"
+      placeholder="Explain your issue..."
+    ></textarea>
+
+    <button
+      type="button"
+      onclick="createSupportCase()"
+    >
+      Send to Admin
+    </button>
+  </section>
+
+  <section class="card">
+    <h3>My Conversations</h3>
+
+    <button
+      type="button"
+      onclick="loadConversations()"
+    >
+      🔄 Refresh
+    </button>
+
+    <div
+      id="conversationList"
+      class="support-list"
+    >
+      Loading...
+    </div>
+  </section>
+
+  <section
+    id="chatSection"
+    class="card"
+    style="display:none;"
+  >
+
+    <h3 id="chatTitle">Conversation</h3>
+
+    <div
+      id="chatMessages"
+      class="chat-box"
+    ></div>
+
+    <textarea
+      id="chatInput"
+      rows="3"
+      maxlength="5000"
+      placeholder="Write your message..."
+    ></textarea>
+
+    <button
+      type="button"
+      onclick="sendMessage()"
+    >
+      Send Message
+    </button>
+
+    <button
+      type="button"
+      onclick="closeConversation()"
+      style="margin-top:8px;"
+    >
+      Close Conversation
+    </button>
+
+  </section>
+
+  <div class="card">
+    <a class="action" href="profile.html">
+      Back to Profile
+    </a>
+  </div>
+
+</main>
+
+<script>
+const API =
+  "https://charcoal-marketplace-main-production.up.railway.app/api";
+
+const token =
+  localStorage.getItem("token");
+
+if (!token) {
+  window.location.href = "profile.html";
+}
+
+function headers() {
+  return {
+    Authorization:
+      "Bearer " + token
+  };
+}
+
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function showMessage(message) {
+  const box =
+    document.getElementById(
+      "supportMessage"
+    );
+
+  box.textContent = message;
+  box.style.display = "block";
+}
+
+let activeConversationId =
+  null;
+
+async function loadConversations() {
+
+  const list =
+    document.getElementById(
+      "conversationList"
+    );
+
+  try {
+
+    const response =
+      await fetch(
+        API + "/support/conversations",
+        {
+          headers:
+            headers()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+      localStorage.removeItem("token");
+      window.location.href =
+        "profile.html";
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Failed to load conversations"
+      );
+    }
+
+    const conversations =
+      Array.isArray(
+        data.conversations
+      )
+        ? data.conversations
+        : [];
+
+    if (!conversations.length) {
+
+      list.innerHTML =
+        "<p>No support conversations yet.</p>";
+
+      return;
+
+    }
+
+    list.innerHTML =
+      conversations.map(
+        c => `
+
+          <button
+            type="button"
+            onclick="openConversation(${c.id})"
+          >
+
+            <strong>
+              ${escapeHTML(
+                c.subject
+              )}
+            </strong>
+
+            <br>
+
+            <small>
+              Status:
+              ${escapeHTML(
+                c.status
+              )}
+              ${
+                Number(
+                  c.unread_for_user ||
+                  0
+                ) > 0
+                  ? " · 🔴 Unread Admin Reply"
+                  : ""
+              }
+            </small>
+
+            ${
+              c.order_id
+                ? `<br><small>Order #${c.order_id}</small>`
+                : ""
+            }
+
+          </button>
+
+        `
+      ).join("");
+
+  } catch (error) {
+
+    list.innerHTML =
+      `<p>${escapeHTML(
+        error.message ||
+        "Unable to load conversations"
+      )}</p>`;
+
+  }
+
+}
+
+async function createSupportCase() {
+
+  const subject =
+    document.getElementById(
+      "subject"
+    ).value.trim();
+
+  const message =
+    document.getElementById(
+      "firstMessage"
+    ).value.trim();
+
+  const orderValue =
+    document.getElementById(
+      "orderId"
+    ).value.trim();
+
+  if (!subject || !message) {
+
+    showMessage(
+      "Subject and message are required."
+    );
+
+    return;
+
+  }
+
+  const body = {
+    subject,
+    message
+  };
+
+  if (orderValue) {
+    body.order_id =
+      Number(orderValue);
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        API + "/support/conversations",
+        {
+          method: "POST",
+          headers: {
+            ...headers(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify(body)
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Failed to create support case"
+      );
+    }
+
+    document.getElementById(
+      "subject"
+    ).value = "";
+
+    document.getElementById(
+      "orderId"
+    ).value = "";
+
+    document.getElementById(
+      "firstMessage"
+    ).value = "";
+
+    showMessage(
+      "Support case created successfully."
+    );
+
+    await loadConversations();
+
+    if (data.conversation_id) {
+      openConversation(
+        data.conversation_id
+      );
+    }
+
+  } catch (error) {
+
+    showMessage(
+      error.message ||
+      "Unable to create support case."
+    );
+
+  }
+
+}
+
+async function openConversation(
+  conversationId
+) {
+
+  activeConversationId =
+    Number(conversationId);
+
+  const section =
+    document.getElementById(
+      "chatSection"
+    );
+
+  const messages =
+    document.getElementById(
+      "chatMessages"
+    );
+
+  section.style.display =
+    "block";
+
+  messages.innerHTML =
+    "<p>Loading...</p>";
+
+  try {
+
+    const response =
+      await fetch(
+        API +
+          "/support/conversations/" +
+          conversationId +
+          "/messages",
+        {
+          headers:
+            headers()
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Failed to load conversation"
+      );
+    }
+
+    document.getElementById(
+      "chatTitle"
+    ).textContent =
+      data.conversation?.subject ||
+      "Support Conversation";
+
+    messages.innerHTML =
+      (
+        Array.isArray(
+          data.messages
+        )
+          ? data.messages
+          : []
+      ).map(
+        m => `
+
+          <div
+            class="chat-message ${
+              m.sender_type !== "admin"
+                ? "mine"
+                : ""
+            }"
+          >
+
+            <strong>
+              ${escapeHTML(
+                m.sender_name ||
+                m.sender_type
+              )}
+            </strong>
+
+            <small>
+              ·
+              ${escapeHTML(
+                m.sender_type
+              )}
+            </small>
+
+            <p>
+              ${escapeHTML(
+                m.message
+              )}
+            </p>
+
+            <small>
+              ${escapeHTML(
+                m.created_at ||
+                ""
+              )}
+            </small>
+
+          </div>
+
+        `
+      ).join("") ||
+      "<p>No messages.</p>";
+
+    messages.scrollTop =
+      messages.scrollHeight;
+
+    await loadConversations();
+
+  } catch (error) {
+
+    messages.innerHTML =
+      `<p>${escapeHTML(
+        error.message ||
+        "Unable to load conversation"
+      )}</p>`;
+
+  }
+
+}
+
+async function sendMessage() {
+
+  if (!activeConversationId) {
+    showMessage(
+      "Open a conversation first."
+    );
+    return;
+  }
+
+  const input =
+    document.getElementById(
+      "chatInput"
+    );
+
+  const message =
+    input.value.trim();
+
+  if (!message) {
+    return;
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        API +
+          "/support/conversations/" +
+          activeConversationId +
+          "/messages",
+        {
+          method: "POST",
+          headers: {
+            ...headers(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              message
+            })
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Failed to send message"
+      );
+    }
+
+    input.value = "";
+
+    await openConversation(
+      activeConversationId
+    );
+
+  } catch (error) {
+
+    showMessage(
+      error.message ||
+      "Unable to send message."
+    );
+
+  }
+
+}
+
+async function closeConversation() {
+
+  if (!activeConversationId) {
+    return;
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        API +
+          "/support/conversations/" +
+          activeConversationId +
+          "/status",
+        {
+          method: "PATCH",
+          headers: {
+            ...headers(),
+            "Content-Type":
+              "application/json"
+          },
+          body:
+            JSON.stringify({
+              status: "closed"
+            })
+        }
+      );
+
+    const data =
+      await response.json()
+        .catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        "Unable to close conversation"
+      );
+    }
+
+    showMessage(
+      "Conversation closed."
+    );
+
+    await loadConversations();
+
+  } catch (error) {
+
+    showMessage(
+      error.message ||
+      "Unable to close conversation."
+    );
+
+  }
+
+}
+
+document.addEventListener(
+  "DOMContentLoaded",
+  loadConversations
+);
+</script>
+
+</body>
+</html>
